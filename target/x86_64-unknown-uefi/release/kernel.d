@@ -1,0 +1,1 @@
+/home/gillo04/Desktop/projects/alba/target/x86_64-unknown-uefi/release/kernel.efi: /home/gillo04/Desktop/projects/alba/kernel/src/main.rs /home/gillo04/Desktop/projects/alba/kernel/src/uefi.rs /home/gillo04/Desktop/projects/alba/kernel/src/utils.rs
