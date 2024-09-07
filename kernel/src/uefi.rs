@@ -2,6 +2,22 @@
 
 use core::ffi::c_void;
 
+// Calls exit_boot_services
+pub fn exit_boot_services(
+    system_table: *const SystemTable,
+    image_handle: *const c_void,
+    memory_map_key: usize,
+) -> Result<(), Status> {
+    let status = unsafe {
+        ((*(*system_table).boot_services).exit_boot_services)(image_handle, memory_map_key)
+    };
+
+    match status {
+        Status::SUCCESS => Ok(()),
+        _ => Err(status),
+    }
+}
+
 #[repr(C)]
 pub struct SystemTable {
     pub hdr: TableHeader,
@@ -122,18 +138,18 @@ pub struct BootServices {
 #[derive(Clone, Copy)]
 pub struct MemoryDescriptor {
     pub t: MemoryType,
-    pub physical_start: *const c_void,
-    pub virtual_start: *const c_void,
+    pub physical_start: u64,
+    pub virtual_start: u64,
     pub number_of_pages: u64,
     pub attribute: u64,
 }
 
-impl Default for MemoryDescriptor {
-    fn default() -> MemoryDescriptor {
+impl MemoryDescriptor {
+    pub const fn new() -> MemoryDescriptor {
         MemoryDescriptor {
             t: MemoryType::ReservedMemoryType,
-            physical_start: 0 as *const c_void,
-            virtual_start: 0 as *const c_void,
+            physical_start: 0,
+            virtual_start: 0,
             number_of_pages: 0,
             attribute: 0,
         }
@@ -295,7 +311,7 @@ const ERROR_BIT: usize = 1 << (core::mem::size_of::<usize>() * 8 - 1);
 
 #[allow(warnings)]
 #[repr(usize)]
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub enum Status {
     /// The operation completed successfully.
     SUCCESS = 0,

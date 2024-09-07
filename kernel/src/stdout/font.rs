@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub const GLYPH_COUNT: u64 = 256;
 pub const GLYPH_SIZE: u64 = 64;
 pub const GLYPH_HEIGHT: u64 = 32;

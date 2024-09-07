@@ -2,12 +2,11 @@ mod font;
 mod framebuffer;
 
 use super::STDOUT;
-use super::SYSTEM_TABLE;
 use crate::uefi::*;
 use core::arch::asm;
 use core::ffi::c_void;
 use font::*;
-pub use framebuffer::*;
+use framebuffer::*;
 
 #[macro_export]
 macro_rules! print {
@@ -27,10 +26,10 @@ pub fn _print(args: core::fmt::Arguments) {
 }
 
 // Initializes the STDOUT global variable. Depends on correct configuration of the SYSTEM_TABLE
-pub fn init(buffer: Option<u64>) {
+pub fn init(system_table: *const SystemTable, buffer: Option<u64>) -> Result<(), ()> {
     let mut gop = 0 as *const GraphicsOutputProtocol;
     unsafe {
-        ((*(**SYSTEM_TABLE.lock()).boot_services).locate_protocol)(
+        ((*(*system_table).boot_services).locate_protocol)(
             &GOP_GUID as *const Guid,
             0 as *const c_void,
             &mut gop as *mut *const GraphicsOutputProtocol as *mut *const c_void,
@@ -49,6 +48,8 @@ pub fn init(buffer: Option<u64>) {
 
     // Clear screen
     STDOUT.lock().frame_buffer.clear(Color::from_rgb(0, 0, 0));
+
+    Ok(())
 }
 
 pub struct StdOut {
@@ -77,7 +78,7 @@ impl StdOut {
     }
 
     fn print_string(&mut self, s: &str) {
-        if let Some(buffer) = self.buffer {
+        if let Some(_buffer) = self.buffer {
             // TODO
         } else {
             let mut iter = s.bytes();
