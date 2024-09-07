@@ -1,0 +1,26 @@
+#![no_std]
+#![no_main]
+
+mod uefi;
+mod utils;
+
+use core::ffi::c_void;
+use spin::mutex::Mutex;
+use uefi::SystemTable;
+
+static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
+
+#[inline]
+#[panic_handler]
+fn painc(_info: &core::panic::PanicInfo) -> ! {
+    utils::halt();
+}
+
+#[no_mangle]
+extern "efiapi" fn efi_main(_image_handle: *const c_void, system_table: *const SystemTable) {
+    unsafe {
+        ((*(*system_table).con_out).clear_screen)((*system_table).con_out);
+    }
+
+    utils::halt();
+}
