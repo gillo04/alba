@@ -11,7 +11,45 @@ static IDT: Mutex<Idt> = Mutex::new(Idt::new());
 
 pub fn init() -> Result<(), ()> {
     IDT.lock().0[ExceptionIndex::DivisionError as usize].set_exception_handler(division_error);
-
+    IDT.lock().0[ExceptionIndex::Debug as usize].set_exception_handler(debug);
+    IDT.lock().0[ExceptionIndex::NonMaskableInterrupt as usize]
+        .set_exception_handler(non_maskable_interrupt);
+    IDT.lock().0[ExceptionIndex::Breakpoint as usize].set_exception_handler(breakpoint);
+    IDT.lock().0[ExceptionIndex::Overflow as usize].set_exception_handler(overflow);
+    IDT.lock().0[ExceptionIndex::BoundRangeExceeded as usize]
+        .set_exception_handler(bound_range_exceeded);
+    IDT.lock().0[ExceptionIndex::InvalidOpcode as usize].set_exception_handler(invalid_opcode);
+    IDT.lock().0[ExceptionIndex::DeviceNotAvailable as usize]
+        .set_exception_handler(device_not_available);
+    IDT.lock().0[ExceptionIndex::DoubleFault as usize]
+        .set_exception_handler_with_error(double_fault);
+    IDT.lock().0[ExceptionIndex::CoprocessorSegmentOverrun as usize]
+        .set_exception_handler(coprocessor_segment_overrun);
+    IDT.lock().0[ExceptionIndex::InvalidTSS as usize].set_exception_handler_with_error(invalid_tss);
+    IDT.lock().0[ExceptionIndex::SegmentNotPresent as usize]
+        .set_exception_handler_with_error(segment_not_present);
+    IDT.lock().0[ExceptionIndex::StackSegmentFault as usize]
+        .set_exception_handler_with_error(stack_segment_fault);
+    IDT.lock().0[ExceptionIndex::GeneralProtectionFault as usize]
+        .set_exception_handler_with_error(general_protection_fault);
+    IDT.lock().0[ExceptionIndex::PageFault as usize].set_exception_handler_with_error(page_fault);
+    IDT.lock().0[ExceptionIndex::X87FloatingPointException as usize]
+        .set_exception_handler(x87_floating_point_exception);
+    IDT.lock().0[ExceptionIndex::AlignmentCheck as usize]
+        .set_exception_handler_with_error(alignment_check);
+    IDT.lock().0[ExceptionIndex::MachineCheck as usize].set_exception_handler(machine_check);
+    IDT.lock().0[ExceptionIndex::SIMDFloatingPointException as usize]
+        .set_exception_handler(simd_floating_point_exception);
+    IDT.lock().0[ExceptionIndex::VirtualizationException as usize]
+        .set_exception_handler(virtualization_exception);
+    IDT.lock().0[ExceptionIndex::ControlProtectionException as usize]
+        .set_exception_handler_with_error(control_protection_exception);
+    IDT.lock().0[ExceptionIndex::HypervisorInjectionException as usize]
+        .set_exception_handler(hypervisor_injection_exception);
+    IDT.lock().0[ExceptionIndex::VMMCommunicationException as usize]
+        .set_exception_handler_with_error(vmm_communication_exception);
+    IDT.lock().0[ExceptionIndex::SecurityException as usize]
+        .set_exception_handler_with_error(security_exception);
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();
 
@@ -59,6 +97,18 @@ impl IdtEntry {
     }
 
     fn set_exception_handler(&mut self, handler: extern "x86-interrupt" fn(InterruptStackFrame)) {
+        self.set_offset(handler as u64);
+        self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
+        self.set_interrupt_stack(0);
+        self.set_gate_type(GateType::Trap);
+        self.set_dpl(PrivilegeLevel::Ring0);
+        self.set_present(true);
+    }
+
+    fn set_exception_handler_with_error(
+        &mut self,
+        handler: extern "x86-interrupt" fn(InterruptStackFrame, u64),
+    ) {
         self.set_offset(handler as u64);
         self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
         self.set_interrupt_stack(0);
@@ -159,14 +209,12 @@ enum ExceptionIndex {
     StackSegmentFault,
     GeneralProtectionFault,
     PageFault,
-
     X87FloatingPointException = 16,
     AlignmentCheck,
     MachineCheck,
     SIMDFloatingPointException,
     VirtualizationException,
     ControlProtectionException,
-
     HypervisorInjectionException = 28,
     VMMCommunicationException,
     SecurityException,

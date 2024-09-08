@@ -56,13 +56,5 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     idt::init().expect("Failed to initialize IDT");
     println!("IDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    unsafe {
-        asm!(
-            "div {:r}, {:r}",
-            in(reg) 5,
-            in(reg) 0,
-        );
-    }
-
     utils::halt();
 }
