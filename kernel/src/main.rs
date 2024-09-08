@@ -1,12 +1,15 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
 
 mod gdt;
+mod idt;
 mod memory;
 mod stdout;
 mod uefi;
 mod utils;
 
+use core::arch::asm;
 use core::ffi::c_void;
 use memory::MemoryManager;
 use spin::mutex::Mutex;
@@ -48,6 +51,18 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     // Initialize GDT
     gdt::init().expect("Failed to initialize GDT");
     println!("GDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
+    // Initialize IDT
+    idt::init().expect("Failed to initialize IDT");
+    println!("IDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
+    unsafe {
+        asm!(
+            "div {:r}, {:r}",
+            in(reg) 5,
+            in(reg) 0,
+        );
+    }
 
     utils::halt();
 }

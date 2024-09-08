@@ -1,19 +1,19 @@
 #![allow(unused)]
 
-use super::{println, Mutex};
+use super::Mutex;
 use core::arch::asm;
 
 static GDT: Mutex<Gdt> = Mutex::new(Gdt::new());
-const KERNEL_CODE_SEGMENT_INDEX: usize = 1;
-const KERNEL_DATA_SEGMENT_INDEX: usize = 2;
-const USER_CODE_SEGMENT_INDEX: usize = 3;
-const USER_DATA_SEGMENT_INDEX: usize = 4;
+pub const KERNEL_CODE_SEGMENT_INDEX: usize = 1;
+pub const KERNEL_DATA_SEGMENT_INDEX: usize = 2;
+pub const USER_CODE_SEGMENT_INDEX: usize = 3;
+pub const USER_DATA_SEGMENT_INDEX: usize = 4;
 
-const KERNEL_CODE_SEGMENT_SELECTOR: usize = KERNEL_CODE_SEGMENT_INDEX << 3;
-const KERNEL_DATA_SEGMENT_SELECTOR: usize = KERNEL_DATA_SEGMENT_INDEX << 3;
-const USER_CODE_SEGMENT_SELECTOR: usize =
+pub const KERNEL_CODE_SEGMENT_SELECTOR: usize = KERNEL_CODE_SEGMENT_INDEX << 3;
+pub const KERNEL_DATA_SEGMENT_SELECTOR: usize = KERNEL_DATA_SEGMENT_INDEX << 3;
+pub const USER_CODE_SEGMENT_SELECTOR: usize =
     (USER_CODE_SEGMENT_INDEX << 3) | PrivilegeLevel::Ring3 as usize;
-const USER_DATA_SEGMENT_SELECTOR: usize =
+pub const USER_DATA_SEGMENT_SELECTOR: usize =
     (USER_DATA_SEGMENT_INDEX << 3) | PrivilegeLevel::Ring3 as usize;
 
 pub fn init() -> Result<(), ()> {
@@ -68,7 +68,7 @@ pub fn init() -> Result<(), ()> {
     // Load GDT descriptor
     let descriptor = GdtDescriptor::new(&GDT.lock());
     let o = descriptor.offset;
-    descriptor.load_gdt();
+    descriptor.load();
 
     Ok(())
 }
@@ -87,7 +87,7 @@ impl GdtDescriptor {
         }
     }
 
-    fn load_gdt(&self) {
+    fn load(&self) {
         unsafe {
             // Load GDT
             asm!("lgdt [{register}]", register = in(reg) self);
@@ -202,7 +202,7 @@ impl GdtEntry {
     }
 }
 
-enum PrivilegeLevel {
+pub enum PrivilegeLevel {
     Ring0 = 0,
     Ring1 = 1,
     Ring2 = 2,
@@ -210,7 +210,7 @@ enum PrivilegeLevel {
 }
 
 impl PrivilegeLevel {
-    fn new(ring: u32) -> PrivilegeLevel {
+    pub fn new(ring: u32) -> PrivilegeLevel {
         match ring {
             0 => Self::Ring0,
             1 => Self::Ring1,

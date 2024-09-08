@@ -1,0 +1,182 @@
+#![allow(unused)]
+
+mod exceptions;
+
+use super::{println, Mutex};
+use crate::gdt::{PrivilegeLevel, KERNEL_CODE_SEGMENT_SELECTOR};
+use core::arch::asm;
+use exceptions::*;
+
+static IDT: Mutex<Idt> = Mutex::new(Idt::new());
+
+pub fn init() -> Result<(), ()> {
+    IDT.lock().0[ExceptionIndex::DivisionError as usize].set_exception_handler(division_error);
+
+    let descriptor = IdtDescriptor::new(&IDT.lock());
+    descriptor.load();
+
+    Ok(())
+}
+
+#[repr(C, packed)]
+struct IdtDescriptor {
+    size: u16,
+    offset: u64,
+}
+
+impl IdtDescriptor {
+    fn new(gdt: &Idt) -> IdtDescriptor {
+        IdtDescriptor {
+            size: size_of::<Idt>() as u16 - 1,
+            offset: gdt as *const Idt as u64,
+        }
+    }
+
+    fn load(&self) {
+        unsafe {
+            // Load IDT
+            asm!("lidt [{register}]", register = in(reg) self);
+        }
+    }
+}
+
+#[repr(C)]
+struct Idt([IdtEntry; 256]);
+
+impl Idt {
+    const fn new() -> Idt {
+        Idt([IdtEntry::new(); 256])
+    }
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct IdtEntry(u64, u64);
+
+impl IdtEntry {
+    const fn new() -> IdtEntry {
+        IdtEntry(0, 0)
+    }
+
+    fn set_exception_handler(&mut self, handler: extern "x86-interrupt" fn(InterruptStackFrame)) {
+        self.set_offset(handler as u64);
+        self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
+        self.set_interrupt_stack(0);
+        self.set_gate_type(GateType::Trap);
+        self.set_dpl(PrivilegeLevel::Ring0);
+        self.set_present(true);
+    }
+
+    // Getters
+    fn get_offset(&self) -> u64 {
+        (self.0 & 0xffff) | ((self.0 >> (48 - 16)) & 0xffff_0000) | (self.1 << 32)
+    }
+
+    fn get_segment_selector(&self) -> u16 {
+        (self.0 >> 16) as u16 & 0xffff
+    }
+
+    fn get_interrupt_stack(&self) -> u8 {
+        (self.0 >> 32) as u8 & 0b111
+    }
+
+    fn get_gate_type(&self) -> GateType {
+        GateType::new((self.0 >> 40) as u32 & 0xf)
+    }
+
+    fn get_dpl(&self) -> PrivilegeLevel {
+        PrivilegeLevel::new((self.0 >> 45) as u32 & 0b11)
+    }
+
+    fn get_present(&self) -> bool {
+        self.0 & (1 << 47) != 0
+    }
+
+    // Setters
+    fn set_offset(&mut self, offset: u64) {
+        self.0 &= !0xffff_0000_0000_ffff;
+        self.1 &= !0xffff_ffff;
+
+        self.0 |= (offset & 0xffff) | ((offset << (48 - 16)) & 0xffff_0000_0000_0000);
+        self.1 |= offset >> 32;
+    }
+
+    fn set_segment_selector(&mut self, sel: u16) {
+        self.0 &= !0xffff_0000;
+        self.0 |= (sel as u64) << 16;
+    }
+
+    fn set_interrupt_stack(&mut self, interrupt_stack: u8) {
+        self.0 &= !0x7_0000_0000;
+        self.0 |= (interrupt_stack as u64 & 0b111) << 32;
+    }
+
+    fn set_gate_type(&mut self, t: GateType) {
+        self.0 &= !0xf00_0000_0000;
+        self.0 |= (t as u64) << 40;
+    }
+
+    fn set_dpl(&mut self, dpl: PrivilegeLevel) {
+        self.0 &= !0x6000_0000_0000;
+        self.0 |= (dpl as u64) << 45;
+    }
+
+    fn set_present(&mut self, present: bool) {
+        self.0 &= !0x8000_0000_0000;
+        self.0 |= (present as u64) << 47;
+    }
+}
+
+enum GateType {
+    Interrupt = 0xe,
+    Trap = 0xf,
+}
+
+impl GateType {
+    const fn new(value: u32) -> GateType {
+        match value {
+            0xe => Self::Interrupt,
+            0xf => Self::Trap,
+            _ => panic!("Invalid gate type"),
+        }
+    }
+}
+
+#[repr(usize)]
+enum ExceptionIndex {
+    DivisionError = 0,
+    Debug,
+    NonMaskableInterrupt,
+    Breakpoint,
+    Overflow,
+    BoundRangeExceeded,
+    InvalidOpcode,
+    DeviceNotAvailable,
+    DoubleFault,
+    CoprocessorSegmentOverrun,
+    InvalidTSS,
+    SegmentNotPresent,
+    StackSegmentFault,
+    GeneralProtectionFault,
+    PageFault,
+
+    X87FloatingPointException = 16,
+    AlignmentCheck,
+    MachineCheck,
+    SIMDFloatingPointException,
+    VirtualizationException,
+    ControlProtectionException,
+
+    HypervisorInjectionException = 28,
+    VMMCommunicationException,
+    SecurityException,
+}
+
+#[repr(C)]
+struct InterruptStackFrame {
+    instruction_ptr: u64,
+    code_segment: u64,
+    r_flags: u64,
+    stack_ptr: u64,
+    stack_segment: u64,
+}
