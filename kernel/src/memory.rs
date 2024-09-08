@@ -1,4 +1,4 @@
-use super::{println, MEMORY_MANAGER};
+use super::MEMORY_MANAGER;
 use crate::uefi::*;
 
 // If successful returns the memory map key

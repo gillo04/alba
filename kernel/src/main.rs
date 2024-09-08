@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+mod gdt;
 mod memory;
 mod stdout;
 mod uefi;
@@ -26,6 +27,11 @@ fn painc(info: &core::panic::PanicInfo) -> ! {
 
 #[no_mangle]
 extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const SystemTable) {
+    // Get system table
+    unsafe {
+        *SYSTEM_TABLE.lock() = system_table;
+    }
+
     // Initialize stdout
     stdout::init(system_table, None).expect("Failed to setup console");
     println!("Console setup\t\t\t\t[ \\gSUCCESS\\w ]");
@@ -39,10 +45,9 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .expect("Failed to exit boot services");
     println!("Exited boot services\t\t[ \\gSUCCESS\\w ]");
 
-    // Get system table
-    unsafe {
-        *SYSTEM_TABLE.lock() = system_table;
-    }
+    // Initialize GDT
+    gdt::init().expect("Failed to initialize GDT");
+    println!("GDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
     utils::halt();
 }
