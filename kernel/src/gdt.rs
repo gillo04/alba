@@ -18,49 +18,52 @@ pub const USER_DATA_SEGMENT_SELECTOR: usize =
 
 pub fn init() -> Result<(), ()> {
     // Setup segments
-    // Kernel code segment
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_base(0);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_limit(0xfffff);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring0);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::Executable, true);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Long, true);
-    GDT.lock().0[KERNEL_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
+    {
+        let mut gdt = GDT.lock();
+        // Kernel code segment
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_base(0);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_limit(0xfffff);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring0);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::Executable, true);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Long, true);
+        gdt.0[KERNEL_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
 
-    // Kernel data segment
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_base(0);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_limit(0xfffff);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring0);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::Executable, false);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Size, true);
-    GDT.lock().0[KERNEL_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
+        // Kernel data segment
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_base(0);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_limit(0xfffff);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring0);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::Executable, false);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Size, true);
+        gdt.0[KERNEL_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
 
-    // User code segment
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_base(0);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_limit(0xfffff);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring3);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::Executable, true);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Long, true);
-    GDT.lock().0[USER_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
+        // User code segment
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_base(0);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_limit(0xfffff);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring3);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::Executable, true);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Long, true);
+        gdt.0[USER_CODE_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
 
-    // User data segment
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_base(0);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_limit(0xfffff);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring3);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::Executable, false);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Size, true);
-    GDT.lock().0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
+        // User data segment
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_base(0);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_limit(0xfffff);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_dpl(PrivilegeLevel::Ring3);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::Present, true);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::DescriptorType, true);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::Executable, false);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Size, true);
+        gdt.0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
+    }
 
     // TSS segment
     // TODO

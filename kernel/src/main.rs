@@ -9,7 +9,6 @@ mod stdout;
 mod uefi;
 mod utils;
 
-use core::arch::asm;
 use core::ffi::c_void;
 use memory::MemoryManager;
 use spin::mutex::Mutex;
@@ -36,17 +35,21 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     }
 
     // Initialize stdout
-    stdout::init(system_table, None).expect("Failed to setup console");
+    stdout::init(system_table, None).expect("Failed to initialize console");
     println!("Console setup\t\t\t\t[ \\gSUCCESS\\w ]");
 
     // Get memory map
-    let memory_map_key = memory::init(system_table).expect("Failed to get memory map");
+    let memory_map_key = memory::init_physical(system_table).expect("Failed to get memory map");
     println!("Got memory map\t\t\t\t[ \\gSUCCESS\\w ]");
 
     // Exit boot services
     exit_boot_services(system_table, image_handle, memory_map_key)
         .expect("Failed to exit boot services");
     println!("Exited boot services\t\t[ \\gSUCCESS\\w ]");
+
+    // Initialize virtual memory
+    memory::init_virtual(system_table).expect("Failed to initialize virtual memory");
+    println!("Virtual memory setup\t\t[ \\gSUCCESS\\w ]");
 
     // Initialize GDT
     gdt::init().expect("Failed to initialize GDT");
