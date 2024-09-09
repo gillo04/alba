@@ -104,7 +104,7 @@ impl IdtEntry {
     fn set_exception_handler(&mut self, handler: extern "x86-interrupt" fn(InterruptStackFrame)) {
         self.set_offset(handler as u64);
         self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
-        self.set_interrupt_stack(0);
+        self.set_interrupt_stack(1);
         self.set_gate_type(GateType::Trap);
         self.set_dpl(PrivilegeLevel::Ring0);
         self.set_present(true);
@@ -116,7 +116,7 @@ impl IdtEntry {
     ) {
         self.set_offset(handler as u64);
         self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
-        self.set_interrupt_stack(0);
+        self.set_interrupt_stack(1);
         self.set_gate_type(GateType::Trap);
         self.set_dpl(PrivilegeLevel::Ring0);
         self.set_present(true);

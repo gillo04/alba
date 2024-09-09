@@ -5,10 +5,11 @@ mod paging;
 use super::{println, Mutex};
 use crate::stdout::STDOUT;
 use crate::uefi::*;
+use crate::utils::clear_page;
 use core::arch::asm;
 use paging::*;
 
-static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
+pub static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
 
 const KERNEL_BASE: usize = 0x3333_0000_0000;
 const PAGE_TABLES_BASE: usize = 0x2222_0000_0000;
@@ -31,11 +32,7 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
 
     // OS memory map
     let plm4 = MEMORY_MANAGER.lock().physical_map.alloc_frame();
-    for i in 0..512 {
-        unsafe {
-            *(plm4 as *mut u64).offset(i) = 0;
-        }
-    }
+    clear_page(plm4);
     let plm4 = unsafe { &mut *(plm4 as *mut PageTable) };
 
     // let p = &MEMORY_MANAGER.lock().physical_map.;

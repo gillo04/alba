@@ -1,13 +1,19 @@
 #![allow(unused)]
 
+mod tss;
+
 use super::Mutex;
+use crate::memory::MEMORY_MANAGER;
+use crate::utils::*;
 use core::arch::asm;
+use tss::*;
 
 static GDT: Mutex<Gdt> = Mutex::new(Gdt::new());
 pub const KERNEL_CODE_SEGMENT_INDEX: usize = 1;
 pub const KERNEL_DATA_SEGMENT_INDEX: usize = 2;
 pub const USER_CODE_SEGMENT_INDEX: usize = 3;
 pub const USER_DATA_SEGMENT_INDEX: usize = 4;
+pub const TSS_SEGMENT_INDEX: usize = 5;
 
 pub const KERNEL_CODE_SEGMENT_SELECTOR: usize = KERNEL_CODE_SEGMENT_INDEX << 3;
 pub const KERNEL_DATA_SEGMENT_SELECTOR: usize = KERNEL_DATA_SEGMENT_INDEX << 3;
@@ -15,6 +21,7 @@ pub const USER_CODE_SEGMENT_SELECTOR: usize =
     (USER_CODE_SEGMENT_INDEX << 3) | PrivilegeLevel::Ring3 as usize;
 pub const USER_DATA_SEGMENT_SELECTOR: usize =
     (USER_DATA_SEGMENT_INDEX << 3) | PrivilegeLevel::Ring3 as usize;
+pub const TSS_SEGMENT_SELECTOR: usize = TSS_SEGMENT_INDEX << 3;
 
 pub fn init() -> Result<(), ()> {
     // Setup segments
@@ -63,10 +70,17 @@ pub fn init() -> Result<(), ()> {
         gdt.0[USER_DATA_SEGMENT_INDEX].set_access(AccessOffset::ReadableOrWritable, true);
         gdt.0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Size, true);
         gdt.0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
-    }
 
-    // TSS segment
-    // TODO
+        // TSS segment
+        TSS.lock().privilege_stacks[0] = MEMORY_MANAGER.lock().physical_map.alloc_frame();
+        clear_page(TSS.lock().privilege_stacks[0]);
+        TSS.lock().interrupt_stacks[0] = MEMORY_MANAGER.lock().physical_map.alloc_frame();
+        clear_page(TSS.lock().interrupt_stacks[0]);
+
+        let mut tss_descriptor = SystemSegmentDescriptor::new_tss_segment(&TSS.lock());
+        gdt.0[TSS_SEGMENT_INDEX].0 = tss_descriptor.0;
+        gdt.0[TSS_SEGMENT_INDEX + 1].0 = tss_descriptor.1;
+    }
 
     // Load GDT descriptor
     let descriptor = GdtDescriptor::new(&GDT.lock());
@@ -116,6 +130,9 @@ impl GdtDescriptor {
                 "mov ss, ax",
                 in("ax") KERNEL_DATA_SEGMENT_SELECTOR as u16,
             );
+
+            // Load TSS
+            asm!("ltr ax", in("ax") TSS_SEGMENT_SELECTOR as u16);
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{println, MEMORY_MANAGER};
+use super::{clear_page, println, MEMORY_MANAGER};
 
 #[repr(C)]
 pub struct PageTable([PageTableEntry; 512]);
@@ -24,12 +24,7 @@ impl PageTable {
 
         if !self.0[index as usize].get_flag(FlagsOffset::Present) {
             let new_table = MEMORY_MANAGER.lock().physical_map.alloc_frame();
-            // Clear page
-            for i in 0..512 {
-                unsafe {
-                    *(new_table as *mut u64).offset(i) = 0;
-                }
-            }
+            clear_page(new_table);
 
             let mut entry = PageTableEntry::new();
             entry.set_flag(FlagsOffset::Writable, true);

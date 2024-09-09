@@ -9,10 +9,9 @@ mod stdout;
 mod uefi;
 mod utils;
 
+use core::arch::asm;
 use core::ffi::c_void;
-use memory::MemoryManager;
 use spin::mutex::Mutex;
-use stdout::StdOut;
 use uefi::SystemTable;
 
 use crate::uefi::exit_boot_services;
@@ -56,6 +55,10 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     // Initialize IDT
     idt::init().expect("Failed to initialize IDT");
     println!("IDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
+    unsafe {
+        asm!("int 3");
+    }
 
     utils::halt();
 }
