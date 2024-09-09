@@ -4,6 +4,7 @@ pub mod heap;
 mod paging;
 
 use super::{println, Mutex};
+use crate::alloc::vec::*;
 use crate::stdout::STDOUT;
 use crate::uefi::*;
 use crate::utils::clear_page;
@@ -12,7 +13,7 @@ use paging::*;
 
 pub static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
 
-const KERNEL_BASE: u64 = 0x2222_0000_0000;
+const KERNEL_BASE: u64 = 0x3333_0000_0000;
 
 // Initializes physical memory map. If successful returns the memory map key
 pub fn init_physical(system_table: *const SystemTable) -> Result<usize, Status> {
@@ -33,8 +34,8 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
     let plm4 = MEMORY_MANAGER.lock().physical_map.alloc_frame();
     clear_page(plm4);
     let plm4 = unsafe { &mut *(plm4 as *mut PageTable) };
+    // plm4.init();
 
-    // let p = &MEMORY_MANAGER.lock().physical_map.;
     let descriptor_size = MEMORY_MANAGER.lock().physical_map.descriptor_size;
     let descriptor_count = MEMORY_MANAGER.lock().physical_map.mm_size / descriptor_size;
     let map = MEMORY_MANAGER.lock().physical_map.map;
@@ -193,4 +194,9 @@ impl PhysicalMemoryMap {
 
         panic!("No more usable memory");
     }
+}
+
+pub struct VirtualMapping {
+    vaddr: u64,
+    frames: Vec<u64>,
 }

@@ -6,6 +6,8 @@
 extern crate alloc;
 use alloc::string::*;
 
+mod ata;
+mod drive;
 mod gdt;
 mod idt;
 mod memory;
@@ -15,11 +17,14 @@ mod stdout;
 mod uefi;
 mod utils;
 
+use ata::*;
 use core::arch::asm;
 use core::ffi::c_void;
+use memory::MEMORY_MANAGER;
 use spin::mutex::Mutex;
 use uefi::SystemTable;
 
+use crate::drive::Drive;
 use crate::uefi::exit_boot_services;
 
 static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
@@ -70,9 +75,14 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     pic8259::init().expect("Failed to initialize PIC");
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    print!("Enter your name: ");
-    let name = stdin::stdin();
-    println!("Hello, {}!", name.trim());
+    let ata_bus = AtaBus::primary();
+    let drive = ata_bus.identify(DriveSelector::Master).unwrap();
+    let buffer = MEMORY_MANAGER.lock().physical_map.alloc_frame();
+    drive.read_sectors(0, 1, buffer as *mut u8);
+
+    println!("Boot sector signature: {:x}", unsafe {
+        *(buffer as *const u16).offset(255)
+    });
 
     utils::halt();
 }
