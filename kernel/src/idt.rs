@@ -1,11 +1,13 @@
 #![allow(unused)]
 
 mod exceptions;
+mod isr;
 
 use super::{println, Mutex};
 use crate::gdt::{PrivilegeLevel, KERNEL_CODE_SEGMENT_SELECTOR};
 use core::arch::asm;
 use exceptions::*;
+use isr::*;
 
 static IDT: Mutex<Idt> = Mutex::new(Idt::new());
 
@@ -54,6 +56,10 @@ pub fn init() -> Result<(), ()> {
             .set_exception_handler_with_error(vmm_communication_exception);
         idt.0[ExceptionIndex::SecurityException as usize]
             .set_exception_handler_with_error(security_exception);
+
+        // Hardware ISRs
+        idt.0[32].set_exception_handler(timer_handler);
+        idt.0[33].set_exception_handler(keyboard_handler);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

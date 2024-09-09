@@ -5,6 +5,7 @@
 mod gdt;
 mod idt;
 mod memory;
+mod pic8259;
 mod stdout;
 mod uefi;
 mod utils;
@@ -56,9 +57,9 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     idt::init().expect("Failed to initialize IDT");
     println!("IDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    unsafe {
-        asm!("int 3");
-    }
+    // Initialize PIC
+    pic8259::init().expect("Failed to initialize PIC");
+    println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
     utils::halt();
 }
