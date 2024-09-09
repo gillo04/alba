@@ -18,8 +18,6 @@ use uefi::SystemTable;
 use crate::uefi::exit_boot_services;
 
 static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
-static STDOUT: Mutex<StdOut> = Mutex::new(StdOut::new(0, 0, 0, 0, None));
-static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
 
 #[panic_handler]
 fn painc(info: &core::panic::PanicInfo) -> ! {

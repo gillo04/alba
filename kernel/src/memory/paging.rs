@@ -1,7 +1,7 @@
-use super::MEMORY_MANAGER;
+use super::{println, MEMORY_MANAGER};
 
 #[repr(C)]
-struct PageTable([PageTableEntry; 512]);
+pub struct PageTable([PageTableEntry; 512]);
 
 impl PageTable {
     const fn new() -> PageTable {
@@ -9,7 +9,7 @@ impl PageTable {
     }
 
     // Maps the physical address to the virtual address
-    /*pub fn map(&mut self, paddr: u64, vaddr: u64, depth: u32) {
+    pub fn map(&mut self, paddr: u64, vaddr: u64, depth: u32) {
         let index = ((vaddr >> 12) >> (9 * depth)) & 0x1ff;
 
         if depth == 0 {
@@ -23,16 +23,19 @@ impl PageTable {
         }
 
         if !self.0[index as usize].get_flag(FlagsOffset::Present) {
-            let new_table = MEMORY_MANAGER.lock().physical_map.alloc_frame() as *mut u64;
+            let new_table = MEMORY_MANAGER.lock().physical_map.alloc_frame();
             // Clear page
             for i in 0..512 {
                 unsafe {
-                    *new_table.offset(i) = 0;
+                    *(new_table as *mut u64).offset(i) = 0;
                 }
             }
 
-            let mut entry = PageTableEntry::new(true, new_table as u64, false);
-            entry.set_writable(true);
+            let mut entry = PageTableEntry::new();
+            entry.set_flag(FlagsOffset::Writable, true);
+            entry.set_flag(FlagsOffset::Present, true);
+            entry.set_physical_address(new_table);
+
             self.0[index as usize] = entry;
         }
 
@@ -43,7 +46,7 @@ impl PageTable {
                 depth - 1,
             )
         };
-    }*/
+    }
 }
 
 #[derive(Clone, Copy)]

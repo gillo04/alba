@@ -1,12 +1,14 @@
 mod font;
 mod framebuffer;
 
-use super::STDOUT;
+use super::Mutex;
 use crate::uefi::*;
 use core::arch::asm;
 use core::ffi::c_void;
 use font::*;
 use framebuffer::*;
+
+pub static STDOUT: Mutex<StdOut> = Mutex::new(StdOut::new(0, 0, 0, 0, None));
 
 #[macro_export]
 macro_rules! print {
