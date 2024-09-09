@@ -121,29 +121,51 @@ impl StdOut {
                     }
 
                     // Bounds checking
-                    if self.col * GLYPH_WIDTH >= self.frame_buffer.width - GLYPH_WIDTH {
-                        self.col = 0;
-                        self.row += 1;
-                    }
-
-                    if self.row * GLYPH_HEIGHT >= self.frame_buffer.height - GLYPH_HEIGHT {
-                        self.row -= 1;
-                        unsafe {
-                            core::ptr::copy_nonoverlapping(
-                                (self.frame_buffer.base
-                                    + self.frame_buffer.pixels_per_scanline * GLYPH_HEIGHT * 4)
-                                    as *const u32,
-                                self.frame_buffer.base as *mut u32,
-                                (self.frame_buffer.pixels_per_scanline
-                                    * (self.frame_buffer.height - GLYPH_HEIGHT))
-                                    as usize,
-                            );
-                        }
-                    }
+                    self.advance_cursor();
                 } else {
                     break;
                 }
             }
+        }
+    }
+
+    pub fn backspace(&mut self) {
+        self.backtrack_cursor();
+        self.print_string(" ");
+        self.backtrack_cursor();
+    }
+
+    fn advance_cursor(&mut self) {
+        if self.col * GLYPH_WIDTH >= self.frame_buffer.width - GLYPH_WIDTH {
+            self.col = 0;
+            self.row += 1;
+        }
+
+        if self.row * GLYPH_HEIGHT >= self.frame_buffer.height - GLYPH_HEIGHT {
+            self.row -= 1;
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    (self.frame_buffer.base
+                        + self.frame_buffer.pixels_per_scanline * GLYPH_HEIGHT * 4)
+                        as *const u32,
+                    self.frame_buffer.base as *mut u32,
+                    (self.frame_buffer.pixels_per_scanline
+                        * (self.frame_buffer.height - GLYPH_HEIGHT)) as usize,
+                );
+            }
+        }
+    }
+
+    fn backtrack_cursor(&mut self) {
+        if self.col == 0 {
+            if self.row == 0 {
+                return;
+            } else {
+                self.col = self.frame_buffer.width / GLYPH_WIDTH;
+                self.row -= 1;
+            }
+        } else {
+            self.col -= 1;
         }
     }
 }

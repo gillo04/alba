@@ -70,9 +70,9 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     pic8259::init().expect("Failed to initialize PIC");
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    let mut str = String::from("Hello, ");
-    str.push_str("world!");
-    println!("{}", str);
+    print!("Enter your name: ");
+    let name = stdin::stdin();
+    println!("Hello, {}!", name.trim());
 
     utils::halt();
 }
