@@ -1,4 +1,4 @@
-#[allow(unused)]
+#![allow(unused)]
 use core::arch::asm;
 
 #[inline]

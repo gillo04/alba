@@ -4,7 +4,7 @@ use crate::print;
 use crate::utils::*;
 
 pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
-    print!(".");
+    // print!(".");
     end_of_interrupt(0);
 }
 

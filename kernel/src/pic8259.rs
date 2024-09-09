@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use super::println;
 use crate::utils::*;
 use core::arch::asm;

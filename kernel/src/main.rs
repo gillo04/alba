@@ -1,11 +1,16 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(const_mut_refs)]
+
+extern crate alloc;
+use alloc::string::*;
 
 mod gdt;
 mod idt;
 mod memory;
 mod pic8259;
+mod stdin;
 mod stdout;
 mod uefi;
 mod utils;
@@ -49,6 +54,10 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     memory::init_virtual(system_table).expect("Failed to initialize virtual memory");
     println!("Virtual memory setup\t\t[ \\gSUCCESS\\w ]");
 
+    // Initialize heap
+    memory::heap::init().expect("Failed to initialize heap");
+    println!("Heap setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
     // Initialize GDT
     gdt::init().expect("Failed to initialize GDT");
     println!("GDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
@@ -60,6 +69,10 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     // Initialize PIC
     pic8259::init().expect("Failed to initialize PIC");
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
+    let mut str = String::from("Hello, ");
+    str.push_str("world!");
+    println!("{}", str);
 
     utils::halt();
 }

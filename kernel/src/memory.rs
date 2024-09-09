@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+pub mod heap;
 mod paging;
 
 use super::{println, Mutex};
@@ -11,9 +12,7 @@ use paging::*;
 
 pub static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
 
-const KERNEL_BASE: usize = 0x3333_0000_0000;
-const PAGE_TABLES_BASE: usize = 0x2222_0000_0000;
-const KERNEL_HEAP: usize = 0x1111_0000_0000;
+const KERNEL_BASE: u64 = 0x2222_0000_0000;
 
 // Initializes physical memory map. If successful returns the memory map key
 pub fn init_physical(system_table: *const SystemTable) -> Result<usize, Status> {
@@ -55,11 +54,14 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
     }
 
     // Map framebuffer
-    let s = STDOUT.lock();
-    let fb_base = s.frame_buffer.base;
-    let fb_page_count = s.frame_buffer.pixels_per_scanline * s.frame_buffer.height * 4 / 0x1000 + 1;
-    for i in 0..fb_page_count {
-        plm4.map(fb_base + i * 0x1000, fb_base + i * 0x1000, 3);
+    {
+        let s = STDOUT.lock();
+        let fb_base = s.frame_buffer.base;
+        let fb_page_count =
+            s.frame_buffer.pixels_per_scanline * s.frame_buffer.height * 4 / 0x1000 + 1;
+        for i in 0..fb_page_count {
+            plm4.map(fb_base + i * 0x1000, fb_base + i * 0x1000, 3);
+        }
     }
 
     MEMORY_MANAGER.lock().set_plm4(plm4);
