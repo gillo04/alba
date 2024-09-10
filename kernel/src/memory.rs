@@ -199,6 +199,7 @@ impl PhysicalMemoryMap {
     }
 }
 
+#[derive(Debug)]
 pub struct VirtualMapping {
     pub vaddr: u64,
     pub frames: Vec<u64>,

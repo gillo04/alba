@@ -16,6 +16,7 @@ mod gdt;
 mod idt;
 mod memory;
 mod pic8259;
+mod process;
 mod stdin;
 mod stdout;
 mod uefi;
@@ -28,6 +29,7 @@ use elf::ElfExecutable;
 use fat32::*;
 use fs::*;
 use memory::MEMORY_MANAGER;
+use process::*;
 use spin::mutex::Mutex;
 use uefi::SystemTable;
 
@@ -89,8 +91,6 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     fat32::init().expect("Failed to initialize FAT32 file system");
     println!("FAT32 setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    FAT32.lock().as_ref().unwrap().dfs(2, 0);
-
     let user1 = FAT32
         .lock()
         .as_ref()
@@ -98,8 +98,10 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .read_file("USER/USER1")
         .unwrap();
     let user1 = ElfExecutable::new(user1);
-    user1.list_sections();
-    println!("ok");
+    let proc1 = Process::new(user1.load_all(), user1.get_entry());
+    proc1.reenter();
+
+    println!("unreachable");
 
     utils::halt();
 }

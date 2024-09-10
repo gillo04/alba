@@ -58,8 +58,8 @@ pub fn init() -> Result<(), ()> {
             .set_exception_handler_with_error(security_exception);
 
         // Hardware ISRs
-        idt.0[32].set_exception_handler(timer_handler);
-        idt.0[33].set_exception_handler(keyboard_handler);
+        idt.0[32].set_interrupt_handler(timer_handler);
+        idt.0[33].set_interrupt_handler(keyboard_handler);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();
@@ -124,6 +124,15 @@ impl IdtEntry {
         self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
         self.set_interrupt_stack(1);
         self.set_gate_type(GateType::Trap);
+        self.set_dpl(PrivilegeLevel::Ring0);
+        self.set_present(true);
+    }
+
+    fn set_interrupt_handler(&mut self, handler: extern "x86-interrupt" fn(InterruptStackFrame)) {
+        self.set_offset(handler as u64);
+        self.set_segment_selector(KERNEL_CODE_SEGMENT_SELECTOR as u16);
+        self.set_interrupt_stack(1);
+        self.set_gate_type(GateType::Interrupt);
         self.set_dpl(PrivilegeLevel::Ring0);
         self.set_present(true);
     }

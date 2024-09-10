@@ -1,4 +1,5 @@
 use super::InterruptStackFrame;
+use core::arch::asm;
 
 pub extern "x86-interrupt" fn division_error(_stack_frame: InterruptStackFrame) {
     panic!("Division by zero occurred");
@@ -24,8 +25,11 @@ pub extern "x86-interrupt" fn bound_range_exceeded(_stack_frame: InterruptStackF
     panic!("Bound range exceeded");
 }
 
-pub extern "x86-interrupt" fn invalid_opcode(_stack_frame: InterruptStackFrame) {
-    panic!("Invalid opcode");
+pub extern "x86-interrupt" fn invalid_opcode(stack_frame: InterruptStackFrame) {
+    panic!(
+        "Invalid opcode\n\tRIP: {:x}\n\tCS: {:x}",
+        stack_frame.instruction_ptr, stack_frame.code_segment
+    );
 }
 
 pub extern "x86-interrupt" fn device_not_available(_stack_frame: InterruptStackFrame) {
@@ -60,9 +64,14 @@ pub extern "x86-interrupt" fn stack_segment_fault(
 
 pub extern "x86-interrupt" fn general_protection_fault(
     _stack_frame: InterruptStackFrame,
-    _error_code: u64,
+    error_code: u64,
 ) {
-    panic!("General protection fault");
+    let cr2: u64;
+    unsafe { asm!("mov {}, cr2", out(reg) cr2) };
+    panic!(
+        "General protection fault\n\tCR2: 0x{:x}\n\tError: 0x{:x}",
+        cr2, error_code
+    );
 }
 
 pub extern "x86-interrupt" fn page_fault(_stack_frame: InterruptStackFrame, _error_code: u64) {
