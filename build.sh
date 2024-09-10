@@ -10,4 +10,4 @@ mcopy -i alba.img target/x86_64-unknown-uefi/release/kernel.efi\
   ::/EFI/BOOT/BOOTX64.EFI
 
 # Run
-qemu-system-x86_64 -d int -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none
+qemu-system-x86_64 -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none

@@ -8,6 +8,7 @@ use alloc::string::*;
 
 mod ata;
 mod drive;
+mod fat32;
 mod gdt;
 mod idt;
 mod memory;
@@ -20,11 +21,11 @@ mod utils;
 use ata::*;
 use core::arch::asm;
 use core::ffi::c_void;
+use fat32::*;
 use memory::MEMORY_MANAGER;
 use spin::mutex::Mutex;
 use uefi::SystemTable;
 
-use crate::drive::Drive;
 use crate::uefi::exit_boot_services;
 
 static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
@@ -76,13 +77,15 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
     let ata_bus = AtaBus::primary();
-    let drive = ata_bus.identify(DriveSelector::Master).unwrap();
-    let buffer = MEMORY_MANAGER.lock().physical_map.alloc_frame();
-    drive.read_sectors(0, 1, buffer as *mut u8);
+    let drive = ata_bus
+        .identify(DriveSelector::Master)
+        .expect("Failed to identify primary master drive");
+    println!("ATA drive identified\t\t[ \\gSUCCESS\\w ]");
 
-    println!("Boot sector signature: {:x}", unsafe {
-        *(buffer as *const u16).offset(255)
-    });
+    let fat32 = Fat32Fs::new(drive);
+
+    let bootx64_cluster = fat32.path_to_cluster("EFI/BOOT/BOOTX64 EFI").unwrap();
+    let bootx64_file = fat32.read_cluster_chain(bootx64_cluster).vaddr as *const u8;
 
     utils::halt();
 }

@@ -11,9 +11,10 @@ use crate::utils::clear_page;
 use core::arch::asm;
 use paging::*;
 
-pub static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
-
 const KERNEL_BASE: u64 = 0x3333_0000_0000;
+pub static MEMORY_MANAGER: Mutex<MemoryManager> = Mutex::new(MemoryManager::new());
+pub static KERNEL_VALLOCATOR: Mutex<VirtualAllocator> =
+    Mutex::new(VirtualAllocator::new(KERNEL_BASE));
 
 // Initializes physical memory map. If successful returns the memory map key
 pub fn init_physical(system_table: *const SystemTable) -> Result<usize, Status> {
@@ -71,16 +72,18 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
 
 pub struct MemoryManager {
     pub physical_map: PhysicalMemoryMap,
+    pub kernel_alloc_count: u64,
 }
 
 impl MemoryManager {
     const fn new() -> MemoryManager {
         MemoryManager {
             physical_map: PhysicalMemoryMap::new(),
+            kernel_alloc_count: 0,
         }
     }
 
-    fn get_plm4(&self) -> &'static mut PageTable {
+    pub fn get_plm4(&self) -> &'static mut PageTable {
         let out: u64;
         unsafe {
             asm!(
@@ -92,7 +95,7 @@ impl MemoryManager {
         }
     }
 
-    fn set_plm4(&self, plm4: &PageTable) {
+    pub fn set_plm4(&self, plm4: &PageTable) {
         unsafe {
             asm!(
                 "mov cr3, {}",
@@ -197,6 +200,42 @@ impl PhysicalMemoryMap {
 }
 
 pub struct VirtualMapping {
+    pub vaddr: u64,
+    pub frames: Vec<u64>,
+}
+
+impl VirtualMapping {
+    pub fn new(vaddr: u64, frames: Vec<u64>) -> VirtualMapping {
+        VirtualMapping { vaddr, frames }
+    }
+}
+
+pub struct VirtualAllocator {
     vaddr: u64,
-    frames: Vec<u64>,
+    alloc_count: u64,
+}
+
+impl VirtualAllocator {
+    const fn new(vaddr: u64) -> VirtualAllocator {
+        VirtualAllocator {
+            vaddr,
+            alloc_count: 0,
+        }
+    }
+
+    pub fn alloc_pages(&mut self, page_count: u64) -> VirtualMapping {
+        let mut out = VirtualMapping::new(
+            self.vaddr + self.alloc_count * 0x1000,
+            Vec::with_capacity(page_count as usize),
+        );
+        for i in 0..page_count {
+            out.frames
+                .push(MEMORY_MANAGER.lock().physical_map.alloc_frame());
+            clear_page(out.frames[i as usize]);
+        }
+        let plm4 = MEMORY_MANAGER.lock().get_plm4();
+        plm4.map_mapping(&out);
+        self.alloc_count += page_count;
+        out
+    }
 }

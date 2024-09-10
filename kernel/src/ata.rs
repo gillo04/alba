@@ -224,7 +224,7 @@ impl AtaBus {
         self.wait_bsy_clear();
     }
 
-    pub fn identify(&self, drive: DriveSelector) -> Result<AtaDrive28, &str> {
+    pub fn identify(&self, drive: DriveSelector) -> Result<AtaDrive48, &str> {
         if drive == DriveSelector::Master {
             self.set_drive(0xa0);
         } else {
@@ -255,20 +255,21 @@ impl AtaBus {
                     buffer[i] = self.get_data();
                 }
 
-                if buffer[83] & (1 << 9) != 0 {
-                    /*return Ok(AtaDrive48 {
+                if buffer[83] & (1 << 10) != 0 {
+                    return Ok(AtaDrive48 {
+                        ata_bus: self,
+                        drive_selector: drive,
+                    });
+                    /*return Ok(AtaDrive28 {
                         ata_bus: self,
                         drive_selector: drive,
                     });*/
-                    return Ok(AtaDrive28 {
-                        ata_bus: self,
-                        drive_selector: drive,
-                    });
                 } else {
-                    return Ok(AtaDrive28 {
+                    return Err("LBA28 unsupported");
+                    /*return Ok(AtaDrive28 {
                         ata_bus: self,
                         drive_selector: drive,
-                    });
+                    });*/
                 }
             } else {
                 return Err("ATA Error while running identify");

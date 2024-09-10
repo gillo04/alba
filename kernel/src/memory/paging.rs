@@ -82,7 +82,7 @@ impl PageTable {
         };
     }
 
-    fn map_mapping(&mut self, mapping: VirtualMapping) {
+    pub fn map_mapping(&mut self, mapping: &VirtualMapping) {
         for (i, frame) in mapping.frames.iter().enumerate() {
             self.map(*frame, mapping.vaddr + i as u64 * 0x1000, 3);
         }
