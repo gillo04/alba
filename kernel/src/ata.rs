@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+use super::Mutex;
 use crate::drive::*;
 use crate::utils::*;
 
@@ -9,13 +10,29 @@ const PRIMARY_CONTROL_BASE: u16 = 0x3F6;
 const SECONDARY_IO_BASE: u16 = 0x170;
 const SECONDARY_CONTROL_BASE: u16 = 0x376;
 
+pub static ATA_DRIVE_48: Mutex<AtaDrive48> = Mutex::new(AtaDrive48::new());
+
+pub fn init() -> Result<(), &'static str> {
+    *ATA_DRIVE_48.lock() = AtaBus::primary().identify(DriveSelector::Master)?;
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
-pub struct AtaDrive28<'a> {
-    ata_bus: &'a AtaBus,
+pub struct AtaDrive28 {
+    ata_bus: AtaBus,
     drive_selector: DriveSelector,
 }
 
-impl Drive for AtaDrive28<'_> {
+impl AtaDrive28 {
+    const fn new() -> AtaDrive28 {
+        AtaDrive28 {
+            ata_bus: AtaBus::primary(),
+            drive_selector: DriveSelector::Master,
+        }
+    }
+}
+
+impl Drive for AtaDrive28 {
     fn read_sectors(&self, lba: u64, sector_count: u64, buffer: *mut u8) {
         let buffer = buffer as *mut u16;
         self.ata_bus.set_sector_count(sector_count as u8);
@@ -57,12 +74,21 @@ impl Drive for AtaDrive28<'_> {
 }
 
 #[derive(Clone, Copy)]
-pub struct AtaDrive48<'a> {
-    ata_bus: &'a AtaBus,
+pub struct AtaDrive48 {
+    ata_bus: AtaBus,
     drive_selector: DriveSelector,
 }
 
-impl Drive for AtaDrive48<'_> {
+impl AtaDrive48 {
+    const fn new() -> AtaDrive48 {
+        AtaDrive48 {
+            ata_bus: AtaBus::primary(),
+            drive_selector: DriveSelector::Master,
+        }
+    }
+}
+
+impl Drive for AtaDrive48 {
     fn read_sectors(&self, lba: u64, sector_count: u64, buffer: *mut u8) {
         let buffer = buffer as *mut u16;
         self.ata_bus.set_sector_count((sector_count >> 8) as u8);
@@ -115,14 +141,14 @@ pub struct AtaBus {
 
 #[allow(unused)]
 impl AtaBus {
-    pub fn primary() -> AtaBus {
+    pub const fn primary() -> AtaBus {
         AtaBus {
             io_base: PRIMARY_IO_BASE,
             control_base: PRIMARY_CONTROL_BASE,
         }
     }
 
-    pub fn secondary() -> AtaBus {
+    pub const fn secondary() -> AtaBus {
         AtaBus {
             io_base: SECONDARY_IO_BASE,
             control_base: SECONDARY_CONTROL_BASE,
@@ -224,7 +250,7 @@ impl AtaBus {
         self.wait_bsy_clear();
     }
 
-    pub fn identify(&self, drive: DriveSelector) -> Result<AtaDrive48, &str> {
+    pub fn identify(&self, drive: DriveSelector) -> Result<AtaDrive48, &'static str> {
         if drive == DriveSelector::Master {
             self.set_drive(0xa0);
         } else {
@@ -257,7 +283,7 @@ impl AtaBus {
 
                 if buffer[83] & (1 << 10) != 0 {
                     return Ok(AtaDrive48 {
-                        ata_bus: self,
+                        ata_bus: self.clone(),
                         drive_selector: drive,
                     });
                     /*return Ok(AtaDrive28 {

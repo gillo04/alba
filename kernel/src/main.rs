@@ -2,13 +2,16 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 #![feature(const_mut_refs)]
+#![feature(str_from_raw_parts)]
 
 extern crate alloc;
 use alloc::string::*;
 
 mod ata;
 mod drive;
+mod elf;
 mod fat32;
+mod fs;
 mod gdt;
 mod idt;
 mod memory;
@@ -21,7 +24,9 @@ mod utils;
 use ata::*;
 use core::arch::asm;
 use core::ffi::c_void;
+use elf::ElfExecutable;
 use fat32::*;
+use fs::*;
 use memory::MEMORY_MANAGER;
 use spin::mutex::Mutex;
 use uefi::SystemTable;
@@ -76,16 +81,25 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     pic8259::init().expect("Failed to initialize PIC");
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    let ata_bus = AtaBus::primary();
-    let drive = ata_bus
-        .identify(DriveSelector::Master)
-        .expect("Failed to identify primary master drive");
+    // Identify ATA drive
+    ata::init().expect("Failed to identify primary master drive");
     println!("ATA drive identified\t\t[ \\gSUCCESS\\w ]");
 
-    let fat32 = Fat32Fs::new(drive);
+    // Initialize FAT32 file system
+    fat32::init().expect("Failed to initialize FAT32 file system");
+    println!("FAT32 setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    let bootx64_cluster = fat32.path_to_cluster("EFI/BOOT/BOOTX64 EFI").unwrap();
-    let bootx64_file = fat32.read_cluster_chain(bootx64_cluster).vaddr as *const u8;
+    FAT32.lock().as_ref().unwrap().dfs(2, 0);
+
+    let user1 = FAT32
+        .lock()
+        .as_ref()
+        .unwrap()
+        .read_file("USER/USER1")
+        .unwrap();
+    let user1 = ElfExecutable::new(user1);
+    user1.list_sections();
+    println!("ok");
 
     utils::halt();
 }

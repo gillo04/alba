@@ -1,16 +1,25 @@
 #![allow(unused)]
 
-use super::println;
+use super::{print, println, Mutex};
+use crate::ata::*;
 use crate::drive::Drive;
+use crate::fs::*;
 use crate::memory::{VirtualMapping, KERNEL_VALLOCATOR, MEMORY_MANAGER};
 use crate::utils::clear_page;
 use alloc::string::*;
 use alloc::vec::*;
 
+pub static FAT32: Mutex<Option<Fat32Fs<AtaDrive48>>> = Mutex::new(None);
+
+pub fn init() -> Result<(), ()> {
+    *FAT32.lock() = Some(Fat32Fs::new(*crate::ata::ATA_DRIVE_48.lock()));
+    Ok(())
+}
+
 pub struct Fat32Fs<D: Drive> {
     drive: D,
     boot_sector: Fat32BootSector,
-    fat_buffer: *const u32,
+    fat_buffer: u64,
 }
 
 impl<D: Drive> Fat32Fs<D> {
@@ -23,7 +32,7 @@ impl<D: Drive> Fat32Fs<D> {
         let fat_buffer = KERNEL_VALLOCATOR
             .lock()
             .alloc_pages(fat_size as u64 * boot_sector.bpd.bytes_per_sector as u64 / 0x1000 + 1)
-            .vaddr as *const u32;
+            .vaddr;
 
         drive.read_sectors(
             first_fat_sector as u64,
@@ -73,19 +82,19 @@ impl<D: Drive> Fat32Fs<D> {
         unsafe { core::slice::from_raw_parts(buffer, max_entries as usize) }
     }
 
-    pub fn path_to_cluster(&self, path: &str) -> Option<u32> {
+    fn path_to_cluster(&self, path: &str) -> Result<u32, &str> {
         self.recursive_path_to_cluster(path.split("/").peekable(), 2)
     }
 
     // TODO rewrite it as non recursive
-    pub fn recursive_path_to_cluster(
+    fn recursive_path_to_cluster(
         &self,
         mut path: core::iter::Peekable<core::str::Split<&str>>,
         cluster: u32,
-    ) -> Option<u32> {
+    ) -> Result<u32, &str> {
         let this = path.next();
         if this == None {
-            return None;
+            return Err("File not found");
         }
         let this = this.unwrap();
 
@@ -99,21 +108,22 @@ impl<D: Drive> Fat32Fs<D> {
                 if next.is_some() {
                     return self.recursive_path_to_cluster(path, next_cluster);
                 } else {
-                    return Some(next_cluster);
+                    return Ok(next_cluster);
                 }
             }
         }
 
-        return None;
+        return Err("File not found");
     }
 
-    pub fn read_cluster_chain(&self, cluster: u32) -> VirtualMapping {
+    fn read_cluster_chain(&self, cluster: u32) -> VirtualMapping {
         // Create file buffer
         let mut current_cluster = cluster;
         let mut cluster_count = 0;
         while current_cluster < 0xFFFFFF8 {
             cluster_count += 1;
-            current_cluster = unsafe { *self.fat_buffer.offset(current_cluster as isize) };
+            current_cluster =
+                unsafe { *(self.fat_buffer as *const u32).offset(current_cluster as isize) };
         }
 
         let page_count = cluster_count
@@ -135,10 +145,42 @@ impl<D: Drive> Fat32Fs<D> {
 
             file_buffer_offset += self.boot_sector.bpd.sectors_per_cluster as u64
                 * self.boot_sector.bpd.bytes_per_sector as u64;
-            current_cluster = unsafe { *self.fat_buffer.offset(current_cluster as isize) };
+            current_cluster =
+                unsafe { *(self.fat_buffer as *const u32).offset(current_cluster as isize) };
         }
 
         file_mapping
+    }
+
+    // Depth first search
+    pub fn dfs(&self, clusrer: u32, depth: u32) {
+        let directory = self.read_directory(clusrer);
+        for file in directory {
+            for _ in 0..depth {
+                print!(" ");
+            }
+
+            let name = core::str::from_utf8(&file.filename).unwrap().trim();
+            if name != "."
+                && name != ".."
+                && file.attributes as u32 & StandardDirectoryAttributes::Hidden as u32 == 0
+            {
+                println!("{}", core::str::from_utf8(&file.filename).unwrap());
+                if file.attributes as u32 & StandardDirectoryAttributes::Directory as u32 != 0 {
+                    self.dfs(
+                        file.first_cluster_low as u32 | ((file.first_cluster_high as u32) << 16),
+                        depth + 1,
+                    );
+                }
+            }
+        }
+    }
+}
+
+impl<D: Drive> Fs for Fat32Fs<D> {
+    fn read_file(&self, path: &str) -> Result<VirtualMapping, &str> {
+        let cluster = self.path_to_cluster(path)?;
+        Ok(self.read_cluster_chain(cluster))
     }
 }
 

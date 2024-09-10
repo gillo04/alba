@@ -1,3 +1,4 @@
-target/
+kernel/target/
+user1/target
 logo/
 alba.img
