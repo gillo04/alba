@@ -2,8 +2,10 @@
 
 use super::{print, println};
 use crate::memory::*;
+use crate::stdin::stdin;
 use crate::utils::*;
 use alloc::vec::*;
+use core::arch::asm;
 
 pub struct ElfExecutable {
     mapping: VirtualMapping,
@@ -68,7 +70,7 @@ impl ElfExecutable {
         let vaddr = segment.virtual_address;
         let memory_size = segment.memory_size;
 
-        let page_count = (memory_size + vaddr & 0xfff) as usize / 0x1000 + 1;
+        let page_count = (memory_size + (vaddr & 0xfff)) as usize / 0x1000 + 1;
         let mut out = VirtualMapping::new(vaddr & !0xfff, Vec::with_capacity(page_count));
         for i in 0..page_count {
             out.frames
@@ -90,6 +92,7 @@ impl ElfExecutable {
                     *(self.mapping.vaddr as *const u8).offset(file_offset as isize + i as isize);
             }
         }
+
         out
     }
 
@@ -126,29 +129,36 @@ impl ElfExecutable {
         let segments = self.get_segments();
 
         let x = header.program_header_entry_count as usize;
-        println!("ok {}", x);
+        println!(
+            "{:>10}\t{:>6}-{:>6}\t{:>6}-{:>6}\t",
+            "type", "file_off", "virt_off", "file_se", "mem_sz"
+        );
         for segment in segments {
             let t = segment.segment_type;
             let f = segment.flags;
 
-            let file_o = segment.file_offset;
-            let virt_o = segment.virtual_address;
-            let file_s = segment.file_size;
-            let mem_s = segment.memory_size;
-            print!(
-                "{:>10?}\t{:06x}-{:06x}\t{:06x}-{:06x}\t",
-                t, file_o, virt_o, file_s, mem_s
-            );
-            if f & ElfSegmentFlags::Executable as u32 != 0 {
-                print!("Executable ");
+            if (t as u64) > 7 {
+                println!("?");
+            } else {
+                let file_o = segment.file_offset;
+                let virt_o = segment.virtual_address;
+                let file_s = segment.file_size;
+                let mem_s = segment.memory_size;
+                print!(
+                    "{:>10?}\t{:06x}-{:06x}\t{:06x}-{:06x}\t",
+                    t, file_o, virt_o, file_s, mem_s
+                );
+                if f & ElfSegmentFlags::Executable as u32 != 0 {
+                    print!("Executable ");
+                }
+                if f & ElfSegmentFlags::Readable as u32 != 0 {
+                    print!("Readable ");
+                }
+                if f & ElfSegmentFlags::Writeable as u32 != 0 {
+                    print!("Writeable ");
+                }
+                println!("");
             }
-            if f & ElfSegmentFlags::Readable as u32 != 0 {
-                print!("Readable ");
-            }
-            if f & ElfSegmentFlags::Writeable as u32 != 0 {
-                print!("Writeable ");
-            }
-            println!("");
         }
     }
 

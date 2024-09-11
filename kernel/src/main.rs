@@ -34,6 +34,7 @@ use spin::mutex::Mutex;
 use uefi::SystemTable;
 
 use crate::uefi::exit_boot_services;
+use crate::utils::halt;
 
 static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
 
@@ -98,10 +99,11 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .read_file("USER/USER1")
         .unwrap();
     let user1 = ElfExecutable::new(user1);
+    println!("Elf file loaded");
     let proc1 = Process::new(user1.load_all(), user1.get_entry());
-    proc1.reenter();
 
-    println!("unreachable");
+    println!("entry: {:x}", unsafe { *((0x41b) as *const u64) });
+    proc1.reenter();
 
     utils::halt();
 }

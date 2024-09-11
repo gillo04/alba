@@ -82,6 +82,28 @@ impl PageTable {
         };
     }
 
+    fn get_page_table_entry(&mut self, vaddr: u64, depth: u32) -> Option<&mut PageTableEntry> {
+        let index = ((vaddr >> 12) >> (9 * depth)) & 0x1ff;
+
+        if depth == 0 {
+            return Some(&mut self.0[index as usize]);
+        }
+
+        if !self.0[index as usize].get_flag(FlagsOffset::Present) {
+            return None;
+        }
+
+        unsafe {
+            (&mut *(self.0[index as usize].get_physical_address() as *mut PageTable))
+                .get_page_table_entry(vaddr, depth - 1)
+        }
+    }
+
+    pub fn unmap(&mut self, vaddr: u64) {
+        let pte = self.get_page_table_entry(vaddr, 3);
+        pte.unwrap().set_flag(FlagsOffset::Present, false);
+    }
+
     pub fn map_mapping(&mut self, mapping: &VirtualMapping) {
         for (i, frame) in mapping.frames.iter().enumerate() {
             self.map(*frame, mapping.vaddr + i as u64 * 0x1000, 3);

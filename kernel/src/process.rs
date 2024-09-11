@@ -1,13 +1,16 @@
 #![allow(unused)]
 
 use super::println;
+use super::Mutex;
 use crate::gdt::*;
 use crate::memory::*;
 use crate::utils::*;
 use alloc::vec::*;
 use core::arch::asm;
 
-const USER_STACK: u64 = 0x1000_0000;
+static PROCESSES: Mutex<Vec<Process>> = Mutex::new(Vec::new());
+
+const USER_STACK: u64 = 0x7000;
 
 pub struct Process {
     mappings: Vec<VirtualMapping>,
@@ -38,6 +41,7 @@ impl Process {
         for m in &self.mappings {
             plm4.map_mapping(m);
         }
+        // plm4.unmap(0);
         MEMORY_MANAGER.lock().set_plm4(plm4);
 
         // Load registers and jump
@@ -50,25 +54,25 @@ impl Process {
 
 #[derive(Clone, Copy)]
 pub struct Context {
-    rax: u64,
-    rbx: u64,
-    rcx: u64,
-    rdx: u64,
-    rsi: u64,
-    rdi: u64,
-    rbp: u64,
-    r8: u64,
-    r9: u64,
-    r10: u64,
-    r11: u64,
-    r12: u64,
-    r13: u64,
-    r14: u64,
-    r15: u64,
+    pub rax: u64,
+    pub rbx: u64,
+    pub rcx: u64,
+    pub rdx: u64,
+    pub rsi: u64,
+    pub rdi: u64,
+    pub rbp: u64,
+    pub r8: u64,
+    pub r9: u64,
+    pub r10: u64,
+    pub r11: u64,
+    pub r12: u64,
+    pub r13: u64,
+    pub r14: u64,
+    pub r15: u64,
 
-    rflags: u64,
-    rsp: u64,
-    rip: u64,
+    pub rflags: u64,
+    pub rsp: u64,
+    pub rip: u64,
 }
 
 impl Context {
@@ -97,7 +101,7 @@ impl Context {
     }
 
     #[inline]
-    fn capture_regs() -> Context {
+    pub fn capture_regs() -> Context {
         let mut ctx: *const Context;
         unsafe {
             asm!(

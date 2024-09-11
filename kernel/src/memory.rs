@@ -31,6 +31,10 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
         .physical_map
         .uefi_identity_map(system_table)?;
 
+    for _ in 0..1000 {
+        MEMORY_MANAGER.lock().physical_map.alloc_frame();
+    }
+
     // OS memory map
     let plm4 = MEMORY_MANAGER.lock().physical_map.alloc_frame();
     clear_page(plm4);

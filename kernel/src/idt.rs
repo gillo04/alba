@@ -60,6 +60,7 @@ pub fn init() -> Result<(), ()> {
         // Hardware ISRs
         idt.0[32].set_interrupt_handler(timer_handler);
         idt.0[33].set_interrupt_handler(keyboard_handler);
+        idt.0[64].set_interrupt_handler(print_interrupt);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

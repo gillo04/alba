@@ -74,8 +74,13 @@ pub extern "x86-interrupt" fn general_protection_fault(
     );
 }
 
-pub extern "x86-interrupt" fn page_fault(_stack_frame: InterruptStackFrame, _error_code: u64) {
-    panic!("Page fault");
+pub extern "x86-interrupt" fn page_fault(stack_frame: InterruptStackFrame, error_code: u64) {
+    let cr2: u64;
+    unsafe { asm!("mov {}, cr2", out(reg) cr2) };
+    panic!(
+        "Page fault\n\tRIP: 0x{:x}\n\tCR2: 0x{:x}\n\tError: 0x{:x}",
+        stack_frame.instruction_ptr, cr2, error_code
+    );
 }
 
 pub extern "x86-interrupt" fn x87_floating_point_exception(_stack_frame: InterruptStackFrame) {
