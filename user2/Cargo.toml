@@ -1,0 +1,13 @@
+[package]
+name = "user2"
+version = "0.1.0"
+edition = "2021"
+
+[prifile.dev]
+panic = "abort"
+
+[prifile.release]
+panic = "abort"
+
+[dependencies]
+

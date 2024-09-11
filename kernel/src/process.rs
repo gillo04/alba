@@ -8,9 +8,23 @@ use crate::utils::*;
 use alloc::vec::*;
 use core::arch::asm;
 
-static PROCESSES: Mutex<Vec<Process>> = Mutex::new(Vec::new());
+pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
 
-const USER_STACK: u64 = 0x7000;
+const USER_STACK: u64 = 0x1000_0000;
+
+pub struct ProcessList {
+    pub processes: Vec<Process>,
+    pub current_process: usize,
+}
+
+impl ProcessList {
+    const fn new() -> ProcessList {
+        ProcessList {
+            processes: Vec::new(),
+            current_process: 0,
+        }
+    }
+}
 
 pub struct Process {
     mappings: Vec<VirtualMapping>,
@@ -24,7 +38,7 @@ impl Process {
             context: Context::new(USER_STACK),
         };
 
-        let mut stack = VirtualMapping::new(USER_STACK, Vec::new());
+        let mut stack = VirtualMapping::new(USER_STACK - 0x1000, Vec::new());
         stack
             .frames
             .push(MEMORY_MANAGER.lock().physical_map.alloc_frame());
@@ -35,6 +49,7 @@ impl Process {
         tmp
     }
 
+    #[inline(always)]
     pub fn reenter(&self) {
         // Load memory mappings
         let plm4 = MEMORY_MANAGER.lock().get_plm4();
@@ -52,7 +67,7 @@ impl Process {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Context {
     pub rax: u64,
     pub rbx: u64,
@@ -149,6 +164,7 @@ impl Context {
                 "push {rflags}",
                 "push {sel_code}",
                 "push {entry}",
+                // "add rsp, 5*8",
                 sel_data = in(reg) KERNEL_DATA_SEGMENT_SELECTOR as u64,
                 sp = in(reg) self.rsp,
                 rflags = in(reg) self.rflags,
@@ -158,6 +174,7 @@ impl Context {
             );
 
             asm!(
+                // "sub rsp, 5*8",
                 "push {}",
                 "push {}",
                 "push {}",
@@ -198,8 +215,8 @@ impl Context {
                 in(reg) self.r10,
                 in(reg) self.r9 ,
                 in(reg) self.r8 ,
-                in(reg) self.rsi,
                 in(reg) self.rdi,
+                in(reg) self.rsi,
                 in(reg) self.rdx,
                 in(reg) self.rcx,
                 in(reg) self.rbx,

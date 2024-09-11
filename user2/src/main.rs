@@ -48,11 +48,11 @@ fn panic_handler(_panic_info: &PanicInfo) -> ! {
 #[export_name = "_start"]
 #[no_mangle]
 extern "C" fn main() {
-    println!("\\rNumbers from 0 to 9:\\w");
-    for i in 0..10 {
-        // println!("\\r\t{}\\w", i);
+    println!("\\gNumbers from 9 to 0:\\w");
+    for i in (0..10).rev() {
+        // println!("\\g\t{}\\w", i);
         println!("{}", i);
-        //println!("\\rok");
+        //println!("\\gok");
     }
     loop {}
 }

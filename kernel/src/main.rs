@@ -99,11 +99,22 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .read_file("USER/USER1")
         .unwrap();
     let user1 = ElfExecutable::new(user1);
-    println!("Elf file loaded");
-    let proc1 = Process::new(user1.load_all(), user1.get_entry());
+    let user1 = Process::new(user1.load_all(), user1.get_entry());
 
-    println!("entry: {:x}", unsafe { *((0x98) as *const u64) });
-    proc1.reenter();
+    let user2 = FAT32
+        .lock()
+        .as_ref()
+        .unwrap()
+        .read_file("USER/USER2")
+        .unwrap();
+    let user2 = ElfExecutable::new(user2);
+    let user2 = Process::new(user2.load_all(), user2.get_entry());
+    PROCESS_LIST.lock().processes.push(user2);
+    PROCESS_LIST.lock().processes.push(user1);
+    println!("Elf files loaded");
+
+    let user1_ref = &PROCESS_LIST.lock().processes[0];
+    user1_ref.reenter();
 
     utils::halt();
 }

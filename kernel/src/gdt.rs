@@ -3,7 +3,7 @@
 mod tss;
 
 use super::Mutex;
-use crate::memory::MEMORY_MANAGER;
+use crate::memory::*;
 use crate::utils::*;
 use core::arch::asm;
 use tss::*;
@@ -72,10 +72,8 @@ pub fn init() -> Result<(), ()> {
         gdt.0[USER_DATA_SEGMENT_INDEX].set_flag(FlagsOffset::Granularity, true);
 
         // TSS segment
-        TSS.lock().privilege_stacks[0] = MEMORY_MANAGER.lock().physical_map.alloc_frame();
-        clear_page(TSS.lock().privilege_stacks[0]);
-        TSS.lock().interrupt_stacks[0] = MEMORY_MANAGER.lock().physical_map.alloc_frame();
-        clear_page(TSS.lock().interrupt_stacks[0]);
+        TSS.lock().privilege_stacks[0] = KERNEL_VALLOCATOR.lock().alloc_pages(1).vaddr;
+        TSS.lock().interrupt_stacks[0] = KERNEL_VALLOCATOR.lock().alloc_pages(1).vaddr;
 
         let mut tss_descriptor = SystemSegmentDescriptor::new_tss_segment(&TSS.lock());
         gdt.0[TSS_SEGMENT_INDEX].0 = tss_descriptor.0;
