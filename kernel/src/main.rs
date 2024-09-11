@@ -102,7 +102,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     println!("Elf file loaded");
     let proc1 = Process::new(user1.load_all(), user1.get_entry());
 
-    println!("entry: {:x}", unsafe { *((0x41b) as *const u64) });
+    println!("entry: {:x}", unsafe { *((0x98) as *const u64) });
     proc1.reenter();
 
     utils::halt();

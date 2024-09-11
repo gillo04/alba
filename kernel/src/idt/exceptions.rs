@@ -1,3 +1,4 @@
+use super::println;
 use super::InterruptStackFrame;
 use core::arch::asm;
 
@@ -13,7 +14,7 @@ pub extern "x86-interrupt" fn non_maskable_interrupt(_stack_frame: InterruptStac
     panic!("Non maskable interrupt occurred");
 }
 
-pub extern "x86-interrupt" fn breakpoint(_stack_frame: InterruptStackFrame) {
+pub extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
     panic!("Breakpoint exception occurred");
 }
 

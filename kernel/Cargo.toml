@@ -3,5 +3,11 @@ name = "kernel"
 version = "0.1.0"
 edition = "2021"
 
+[prifile.dev]
+panic = "abort"
+
+[prifile.release]
+panic = "abort"
+
 [dependencies]
 spin = "0.9.8"
