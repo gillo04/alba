@@ -1,17 +1,44 @@
 use core::fmt::Write;
 
-use super::println;
 use super::InterruptStackFrame;
+use super::{super::print, println};
 use crate::pic8259::*;
+use crate::pit::*;
 use crate::process::*;
 use crate::stdin::*;
 use crate::stdout::*;
 use crate::utils::*;
 use core::arch::*;
 
-pub extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame) {
-    // print!(".");
+pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    unsafe {
+        PROCESS_LIST.force_unlock();
+    }
+    let mut current_process = 0;
+    let active = PROCESS_LIST.lock().multitasking_active;
+    if active {
+        current_process = PROCESS_LIST.lock().current_process;
+        if PROCESS_LIST.lock().jump_to_multitasking {
+            PROCESS_LIST.lock().jump_to_multitasking = false;
+        } else {
+            PROCESS_LIST.lock().processes[current_process].context = ctx;
+        }
+    }
+
+    *MILLISECONDS_SINCE_STARTUP.lock() += 1;
     end_of_interrupt(0);
+
+    // Switch task
+    if active {
+        current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
+        PROCESS_LIST.lock().current_process = current_process;
+        PROCESS_LIST.lock().processes[current_process].reenter();
+    }
 }
 
 pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
@@ -42,15 +69,6 @@ pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) 
 
 pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame) {
     let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    unsafe {
-        PROCESS_LIST.force_unlock();
-    }
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
 
     let buffer = ctx.rax as *const u32;
     let mut x = ctx.rcx;
@@ -78,9 +96,4 @@ pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame
             }
         }
     }
-
-    // Switch task
-    current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
-    PROCESS_LIST.lock().current_process = current_process;
-    PROCESS_LIST.lock().processes[current_process].reenter();
 }

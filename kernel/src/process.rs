@@ -11,11 +11,13 @@ use core::arch::asm;
 pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
 
 const USER_STACK_BASE: u64 = 0x1000_0000;
-const USER_STACK_PAGE_COUNT: u64 = 100;
+const USER_STACK_PAGE_COUNT: u64 = 0x100;
 
 pub struct ProcessList {
     pub processes: Vec<Process>,
     pub current_process: usize,
+    pub multitasking_active: bool,
+    pub jump_to_multitasking: bool,
 }
 
 impl ProcessList {
@@ -23,6 +25,8 @@ impl ProcessList {
         ProcessList {
             processes: Vec::new(),
             current_process: 0,
+            multitasking_active: false,
+            jump_to_multitasking: false,
         }
     }
 }
@@ -53,7 +57,10 @@ impl Process {
     }
 
     #[inline(always)]
-    pub fn reenter(&self) {
+    pub fn reenter(&mut self) {
+        // Enable interrupts
+        self.context.rflags |= 0x0200;
+
         // Load memory mappings
         let plm4 = MEMORY_MANAGER.lock().get_plm4();
         for m in &self.mappings {
@@ -66,6 +73,7 @@ impl Process {
 
         // Load registers and jump
         self.context.load_regs();
+
         unsafe {
             asm!("iretq");
         }

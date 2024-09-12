@@ -16,6 +16,7 @@ mod gdt;
 mod idt;
 mod memory;
 mod pic8259;
+mod pit;
 mod process;
 mod stdin;
 mod stdout;
@@ -79,6 +80,10 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     idt::init().expect("Failed to initialize IDT");
     println!("IDT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
+    // Initialize PIT
+    pit::init().expect("Failed to initialize PIT");
+    println!("PIT setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
+
     // Initialize PIC
     pic8259::init().expect("Failed to initialize PIC");
     println!("PIC setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
@@ -112,8 +117,8 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     PROCESS_LIST.lock().processes.push(user2);
 
     println!("Elf files loaded");
-    let user1_ref = &PROCESS_LIST.lock().processes[0];
-    user1_ref.reenter();
+    PROCESS_LIST.lock().multitasking_active = true;
+    PROCESS_LIST.lock().jump_to_multitasking = true;
 
     utils::halt();
 }

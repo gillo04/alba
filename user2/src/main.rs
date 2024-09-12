@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use core::arch::asm;
 use stdlib::*;
 
 #[export_name = "_start"]
@@ -18,9 +17,6 @@ extern "C" fn main() {
         color: 0x00ff00,
     };
 
-    unsafe {
-        asm!("mov rax, [0]");
-    }
     loop {
         circ.x += direction;
         circ.y += direction;
