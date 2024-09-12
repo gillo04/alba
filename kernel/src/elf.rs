@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 use super::{print, println};
+use crate::fs::*;
 use crate::memory::*;
 use crate::stdin::stdin;
 use crate::utils::*;
@@ -12,8 +13,10 @@ pub struct ElfExecutable {
 }
 
 impl ElfExecutable {
-    pub fn new(mapping: VirtualMapping) -> ElfExecutable {
-        ElfExecutable { mapping }
+    pub fn new(file: File) -> ElfExecutable {
+        ElfExecutable {
+            mapping: file.mapping,
+        }
     }
 
     #[inline]

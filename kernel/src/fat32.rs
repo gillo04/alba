@@ -82,7 +82,7 @@ impl<D: Drive> Fat32Fs<D> {
         unsafe { core::slice::from_raw_parts(buffer, max_entries as usize) }
     }
 
-    fn path_to_cluster(&self, path: &str) -> Result<u32, &str> {
+    fn path_to_cluster(&self, path: &str) -> Result<(u32, u64), &str> {
         self.recursive_path_to_cluster(path.split("/").peekable(), 2)
     }
 
@@ -91,7 +91,7 @@ impl<D: Drive> Fat32Fs<D> {
         &self,
         mut path: core::iter::Peekable<core::str::Split<&str>>,
         cluster: u32,
-    ) -> Result<u32, &str> {
+    ) -> Result<(u32, u64), &str> {
         let this = path.next();
         if this == None {
             return Err("File not found");
@@ -104,11 +104,12 @@ impl<D: Drive> Fat32Fs<D> {
             let entry_name = core::str::from_utf8(&entry.filename).unwrap().trim();
             let next_cluster =
                 ((entry.first_cluster_high as u32) << 16) | entry.first_cluster_low as u32;
+            let size = entry.file_size_bytes as u64;
             if entry_name == this {
                 if next.is_some() {
                     return self.recursive_path_to_cluster(path, next_cluster);
                 } else {
-                    return Ok(next_cluster);
+                    return Ok((next_cluster, size));
                 }
             }
         }
@@ -178,9 +179,12 @@ impl<D: Drive> Fat32Fs<D> {
 }
 
 impl<D: Drive> Fs for Fat32Fs<D> {
-    fn read_file(&self, path: &str) -> Result<VirtualMapping, &str> {
-        let cluster = self.path_to_cluster(path)?;
-        Ok(self.read_cluster_chain(cluster))
+    fn read_file(&self, path: &str) -> Result<File, &str> {
+        let (cluster, size) = self.path_to_cluster(path)?;
+        Ok(File {
+            mapping: self.read_cluster_chain(cluster),
+            size,
+        })
     }
 }
 

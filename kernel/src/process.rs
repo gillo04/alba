@@ -11,7 +11,7 @@ use core::arch::asm;
 pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
 
 const USER_STACK_BASE: u64 = 0x1000_0000;
-const USER_STACK_PAGE_COUNT: u64 = 0x100;
+const USER_STACK_PAGE_COUNT: u64 = 0x1000;
 
 pub struct ProcessList {
     pub processes: Vec<Process>,
@@ -32,7 +32,7 @@ impl ProcessList {
 }
 
 pub struct Process {
-    mappings: Vec<VirtualMapping>,
+    pub mappings: Vec<VirtualMapping>,
     pub context: Context,
 }
 
@@ -58,9 +58,6 @@ impl Process {
 
     #[inline(always)]
     pub fn reenter(&mut self) {
-        // Enable interrupts
-        self.context.rflags |= 0x0200;
-
         // Load memory mappings
         let plm4 = MEMORY_MANAGER.lock().get_plm4();
         for m in &self.mappings {
@@ -122,7 +119,7 @@ impl Context {
             r14: 0,
             r15: 0,
 
-            rflags: 0,
+            rflags: 0x0200,
             rsp: stack,
             rip: 0,
         }

@@ -2,12 +2,14 @@ use core::fmt::Write;
 
 use super::InterruptStackFrame;
 use super::{super::print, println};
+use crate::fat32::*;
 use crate::pic8259::*;
 use crate::pit::*;
 use crate::process::*;
 use crate::stdin::*;
 use crate::stdout::*;
 use crate::utils::*;
+use crate::Fs;
 use core::arch::*;
 
 pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
@@ -96,4 +98,60 @@ pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame
             }
         }
     }
+}
+
+pub extern "x86-interrupt" fn get_screen_size(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    unsafe {
+        PROCESS_LIST.force_unlock();
+    }
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    PROCESS_LIST.lock().processes[current_process].context.rax = STDOUT.lock().frame_buffer.width;
+    PROCESS_LIST.lock().processes[current_process].context.rcx = STDOUT.lock().frame_buffer.height;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn load_file(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    unsafe {
+        PROCESS_LIST.force_unlock();
+    }
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    let path = {
+        let ptr = PROCESS_LIST.lock().processes[current_process].context.rax;
+        let len = PROCESS_LIST.lock().processes[current_process].context.rcx;
+        unsafe { core::str::from_raw_parts(ptr as *const u8, len as usize) }
+    };
+
+    let mut ptr = 0;
+    let mut size = 0;
+    if let Ok(file) = FAT32.lock().as_ref().unwrap().read_file(path) {
+        ptr = file.mapping.vaddr;
+        size = file.size;
+        PROCESS_LIST.lock().processes[current_process]
+            .mappings
+            .push(file.mapping);
+    }
+
+    PROCESS_LIST.lock().processes[current_process].context.rdx = ptr;
+    PROCESS_LIST.lock().processes[current_process].context.r8 = size;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
 }

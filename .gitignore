@@ -2,5 +2,4 @@ kernel/target/
 user1/target
 user2/target/
 stdlib/target/
-logo/
 alba.img
