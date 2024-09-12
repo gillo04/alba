@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Clone, Copy)]
 pub struct FrameBuffer {
     pub base: u64,
     pub width: u64,

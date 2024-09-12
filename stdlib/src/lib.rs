@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(unused)]
 
 use core::arch::asm;
 use core::panic::PanicInfo;
@@ -41,5 +42,32 @@ impl core::fmt::Write for StdOut {
             );
         }
         Ok(())
+    }
+}
+
+pub struct ScreenBuffer {
+    x: u64,
+    y: u64,
+    w: u64,
+    h: u64,
+    base: u64,
+}
+
+impl ScreenBuffer {
+    pub fn new(x: u64, y: u64, w: u64, h: u64, base: u64) -> ScreenBuffer {
+        ScreenBuffer { x, y, w, h, base }
+    }
+
+    pub fn put(&self) {
+        unsafe {
+            asm!(
+                "int 0x41",
+                in("rax") self.base,
+                in("rcx") self.x,
+                in("rdx") self.y,
+                in("r8") self.w,
+                in("r9") self.h,
+            );
+        }
     }
 }

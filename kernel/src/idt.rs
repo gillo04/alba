@@ -63,6 +63,9 @@ pub fn init() -> Result<(), ()> {
 
         idt.0[64].set_interrupt_handler(print_interrupt);
         idt.0[64].set_dpl(PrivilegeLevel::Ring3);
+
+        idt.0[65].set_interrupt_handler(put_screen_buffer);
+        idt.0[65].set_dpl(PrivilegeLevel::Ring3);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

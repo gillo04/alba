@@ -11,7 +11,7 @@ use core::arch::asm;
 pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
 
 const USER_STACK_BASE: u64 = 0x1000_0000;
-const USER_STACK_PAGE_COUNT: u64 = 10;
+const USER_STACK_PAGE_COUNT: u64 = 100;
 
 pub struct ProcessList {
     pub processes: Vec<Process>,

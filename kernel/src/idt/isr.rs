@@ -53,3 +53,24 @@ pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) 
     PROCESS_LIST.lock().current_process = current_process;
     PROCESS_LIST.lock().processes[current_process].reenter();
 }
+
+pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+
+    let buffer = ctx.rax as *const u32;
+    let x = ctx.rcx;
+    let y = ctx.rdx;
+    let w = ctx.r8;
+    let h = ctx.r9;
+
+    let frame_buffer = STDOUT.lock().frame_buffer;
+    for i in 0..h {
+        for j in 0..w {
+            unsafe {
+                *(frame_buffer.base as *mut u32)
+                    .offset(((y + i) * frame_buffer.pixels_per_scanline + (x + j)) as isize) =
+                    *(buffer as *mut u32).offset((i * w + j) as isize);
+            }
+        }
+    }
+}
