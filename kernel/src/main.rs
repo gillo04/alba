@@ -34,7 +34,6 @@ use spin::mutex::Mutex;
 use uefi::SystemTable;
 
 use crate::uefi::exit_boot_services;
-use crate::utils::halt;
 
 static mut SYSTEM_TABLE: Mutex<*const SystemTable> = Mutex::new(0 as *const SystemTable);
 
@@ -100,6 +99,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());
+    PROCESS_LIST.lock().processes.push(user1);
 
     let user2 = FAT32
         .lock()
@@ -110,9 +110,8 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     let user2 = ElfExecutable::new(user2);
     let user2 = Process::new(user2.load_all(), user2.get_entry());
     PROCESS_LIST.lock().processes.push(user2);
-    PROCESS_LIST.lock().processes.push(user1);
-    println!("Elf files loaded");
 
+    println!("Elf files loaded");
     let user1_ref = &PROCESS_LIST.lock().processes[0];
     user1_ref.reenter();
 

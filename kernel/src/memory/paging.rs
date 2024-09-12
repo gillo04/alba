@@ -48,7 +48,7 @@ impl PageTable {
     }*/
 
     // Maps the physical address to the virtual address. Can be called only on plm4
-    pub fn map(&mut self, paddr: u64, vaddr: u64, depth: u32) {
+    pub fn map(&mut self, paddr: u64, vaddr: u64, depth: u32) -> &mut PageTableEntry {
         let index = ((vaddr >> 12) >> (9 * depth)) & 0x1ff;
 
         if depth == 0 {
@@ -58,7 +58,7 @@ impl PageTable {
             entry.set_physical_address(paddr);
 
             self.0[index as usize] = entry;
-            return;
+            return &mut self.0[index as usize];
         }
 
         if !self.0[index as usize].get_flag(FlagsOffset::Present) {
@@ -68,17 +68,18 @@ impl PageTable {
             let mut entry = PageTableEntry::new();
             entry.set_flag(FlagsOffset::Writable, true);
             entry.set_flag(FlagsOffset::Present, true);
+            entry.set_flag(FlagsOffset::UserAccessible, true);
             entry.set_physical_address(new_table);
 
             self.0[index as usize] = entry;
         }
 
         unsafe {
-            (&mut *(self.0[index as usize].get_physical_address() as *mut PageTable)).map(
+            return (&mut *(self.0[index as usize].get_physical_address() as *mut PageTable)).map(
                 paddr,
                 vaddr,
                 depth - 1,
-            )
+            );
         };
     }
 
@@ -109,40 +110,47 @@ impl PageTable {
             self.map(*frame, mapping.vaddr + i as u64 * 0x1000, 3);
         }
     }
+
+    pub fn map_mapping_user(&mut self, mapping: &VirtualMapping) {
+        for (i, frame) in mapping.frames.iter().enumerate() {
+            let pte = self.map(*frame, mapping.vaddr + i as u64 * 0x1000, 3);
+            pte.set_flag(FlagsOffset::UserAccessible, true);
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-struct PageTableEntry(u64);
+pub struct PageTableEntry(u64);
 
 impl PageTableEntry {
-    const fn new() -> PageTableEntry {
+    pub const fn new() -> PageTableEntry {
         PageTableEntry(0)
     }
 
     // Getters
-    fn get_flag(&self, offset: FlagsOffset) -> bool {
+    pub fn get_flag(&self, offset: FlagsOffset) -> bool {
         (self.0 >> offset as u32) & 1 != 0
     }
 
-    fn get_physical_address(&self) -> u64 {
+    pub fn get_physical_address(&self) -> u64 {
         self.0 & 0xf_ffff_ffff_f000
     }
 
     // Setters
-    fn set_flag(&mut self, offset: FlagsOffset, value: bool) {
+    pub fn set_flag(&mut self, offset: FlagsOffset, value: bool) {
         self.0 &= !(1 << offset as u32);
         self.0 |= (value as u64) << (offset as u32);
     }
 
-    fn set_physical_address(&mut self, addr: u64) {
+    pub fn set_physical_address(&mut self, addr: u64) {
         self.0 &= !0xf_ffff_ffff_f000;
         self.0 |= addr & 0xf_ffff_ffff_f000;
     }
 }
 
 #[derive(Clone, Copy)]
-enum FlagsOffset {
+pub enum FlagsOffset {
     Present = 0,
     Writable,
     UserAccessible,

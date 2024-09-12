@@ -10,7 +10,8 @@ use core::arch::asm;
 
 pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
 
-const USER_STACK: u64 = 0x1000_0000;
+const USER_STACK_BASE: u64 = 0x1000_0000;
+const USER_STACK_PAGE_COUNT: u64 = 10;
 
 pub struct ProcessList {
     pub processes: Vec<Process>,
@@ -35,14 +36,16 @@ impl Process {
     pub fn new(mappings: Vec<VirtualMapping>, entry_point: u64) -> Process {
         let mut tmp = Process {
             mappings,
-            context: Context::new(USER_STACK),
+            context: Context::new(USER_STACK_BASE + USER_STACK_PAGE_COUNT * 0x1000),
         };
 
-        let mut stack = VirtualMapping::new(USER_STACK - 0x1000, Vec::new());
-        stack
-            .frames
-            .push(MEMORY_MANAGER.lock().physical_map.alloc_frame());
-        clear_page(stack.frames[0]);
+        let mut stack = VirtualMapping::new(USER_STACK_BASE, Vec::new());
+        for i in 0..USER_STACK_PAGE_COUNT {
+            stack
+                .frames
+                .push(MEMORY_MANAGER.lock().physical_map.alloc_frame());
+            clear_page(stack.frames[0]);
+        }
         tmp.mappings.push(stack);
 
         tmp.context.rip = entry_point;
@@ -54,7 +57,7 @@ impl Process {
         // Load memory mappings
         let plm4 = MEMORY_MANAGER.lock().get_plm4();
         for m in &self.mappings {
-            plm4.map_mapping(m);
+            plm4.map_mapping_user(m);
         }
         // plm4.unmap(0);
         MEMORY_MANAGER.lock().set_plm4(plm4);
@@ -155,7 +158,7 @@ impl Context {
                 "mov es, ax",
                 "mov fs, ax",
                 "mov gs, ax",
-                in("rax") KERNEL_DATA_SEGMENT_SELECTOR as u64,
+                in("rax") USER_DATA_SEGMENT_SELECTOR as u64,
             );
 
             asm!(
@@ -165,10 +168,10 @@ impl Context {
                 "push {sel_code}",
                 "push {entry}",
                 // "add rsp, 5*8",
-                sel_data = in(reg) KERNEL_DATA_SEGMENT_SELECTOR as u64,
+                sel_data = in(reg) USER_DATA_SEGMENT_SELECTOR as u64,
                 sp = in(reg) self.rsp,
                 rflags = in(reg) self.rflags,
-                sel_code = in(reg) KERNEL_CODE_SEGMENT_SELECTOR as u64,
+                sel_code = in(reg) USER_CODE_SEGMENT_SELECTOR as u64,
                 entry = in(reg) self.rip as u64,
                 options(preserves_flags),
             );

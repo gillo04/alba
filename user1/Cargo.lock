@@ -3,5 +3,12 @@
 version = 3
 
 [[package]]
+name = "stdlib"
+version = "0.1.0"
+
+[[package]]
 name = "user1"
 version = "0.1.0"
+dependencies = [
+ "stdlib",
+]

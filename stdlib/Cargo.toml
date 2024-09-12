@@ -1,13 +1,12 @@
 [package]
-name = "user1"
+name = "stdlib"
 version = "0.1.0"
 edition = "2021"
 
-[prifile.dev]
+[profile.dev]
 panic = "abort"
 
-[prifile.release]
+[profile.release]
 panic = "abort"
 
 [dependencies]
-stdlib = {path = "../stdlib/"}

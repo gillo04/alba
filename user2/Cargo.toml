@@ -10,4 +10,5 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+stdlib = {path = "../stdlib/"}
 
