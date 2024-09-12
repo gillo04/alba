@@ -59,8 +59,10 @@ impl Process {
         for m in &self.mappings {
             plm4.map_mapping_user(m);
         }
-        // plm4.unmap(0);
         MEMORY_MANAGER.lock().set_plm4(plm4);
+
+        // Create stack guard page
+        plm4.unmap(USER_STACK_BASE - 0x1000);
 
         // Load registers and jump
         self.context.load_regs();

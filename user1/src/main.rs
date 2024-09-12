@@ -11,8 +11,8 @@ extern "C" fn main() {
     let mut direction: i64 = 1;
 
     let mut rect = Rectangle {
-        x: -255 / 2,
-        y: -255 / 2,
+        x: -256,
+        y: -256,
         w: 255,
         h: 255,
         color: 0xff0000,
@@ -20,7 +20,7 @@ extern "C" fn main() {
     loop {
         rect.x += direction;
         rect.y += direction;
-        if rect.x >= 255 || rect.x <= -128 {
+        if rect.x >= 256 || rect.x <= -256 {
             direction = -direction;
         }
         sbuffer.clear(0);

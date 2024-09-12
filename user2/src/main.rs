@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use core::arch::asm;
 use stdlib::*;
 
 #[export_name = "_start"]
@@ -11,15 +12,19 @@ extern "C" fn main() {
     let mut direction: i64 = 1;
 
     let mut circ = Circle {
-        x: 0,
-        y: 0,
+        x: -256,
+        y: -256,
         r: 255 / 2,
         color: 0x00ff00,
     };
+
+    unsafe {
+        asm!("mov rax, [0]");
+    }
     loop {
         circ.x += direction;
         circ.y += direction;
-        if circ.x >= 255 || circ.x <= 0 {
+        if circ.x >= 256 + 128 || circ.x <= -256 {
             direction = -direction;
         }
         sbuffer.clear(0);

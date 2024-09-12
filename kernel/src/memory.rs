@@ -70,6 +70,9 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
         }
     }
 
+    // Unamp 0th page
+    plm4.unmap(0);
+
     MEMORY_MANAGER.lock().set_plm4(plm4);
     Ok(())
 }
