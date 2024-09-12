@@ -30,6 +30,18 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
 
 pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) {
     let mut ctx = Context::capture_regs();
+
+    // Print
+    let ptr = ctx.rax as *const u8;
+    let len = ctx.rcx as usize;
+    unsafe {
+        let string = core::str::from_raw_parts(ptr, len);
+        STDOUT.lock().write_str(string);
+    }
+}
+
+pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
     ctx.rsp = stack_frame.stack_ptr;
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
@@ -40,30 +52,23 @@ pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) 
     let mut current_process = PROCESS_LIST.lock().current_process;
     PROCESS_LIST.lock().processes[current_process].context = ctx;
 
-    // Print
-    let ptr = ctx.rax as *const u8;
-    let len = ctx.rcx as usize;
-    unsafe {
-        let string = core::str::from_raw_parts(ptr, len);
-        STDOUT.lock().write_str(string);
+    let buffer = ctx.rax as *const u32;
+    let mut x = ctx.rcx;
+    let mut y = ctx.rdx;
+    let mut w = ctx.r8;
+    let mut h = ctx.r9;
+    let frame_buffer = STDOUT.lock().frame_buffer;
+
+    // Bounds checking
+    x = u64::min(x, frame_buffer.width);
+    y = u64::min(y, frame_buffer.height);
+    if x + w >= frame_buffer.width {
+        w = frame_buffer.width - x;
+    }
+    if y + h >= frame_buffer.height {
+        h = frame_buffer.height - y;
     }
 
-    // Switch task
-    current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
-    PROCESS_LIST.lock().current_process = current_process;
-    PROCESS_LIST.lock().processes[current_process].reenter();
-}
-
-pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-
-    let buffer = ctx.rax as *const u32;
-    let x = ctx.rcx;
-    let y = ctx.rdx;
-    let w = ctx.r8;
-    let h = ctx.r9;
-
-    let frame_buffer = STDOUT.lock().frame_buffer;
     for i in 0..h {
         for j in 0..w {
             unsafe {
@@ -73,4 +78,9 @@ pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame
             }
         }
     }
+
+    // Switch task
+    current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
+    PROCESS_LIST.lock().current_process = current_process;
+    PROCESS_LIST.lock().processes[current_process].reenter();
 }
