@@ -58,9 +58,11 @@ pub fn init() -> Result<(), ()> {
             .set_exception_handler_with_error(security_exception);
 
         // Hardware ISRs
-        idt.0[32].set_interrupt_handler(timer_handler);
-        idt.0[33].set_interrupt_handler(keyboard_handler);
+        idt.0[32 + 0].set_interrupt_handler(timer_handler);
+        idt.0[32 + 1].set_interrupt_handler(keyboard_handler);
+        idt.0[32 + 12].set_interrupt_handler(mouse_handler);
 
+        // Syscalls
         idt.0[64].set_interrupt_handler(print_interrupt);
         idt.0[64].set_dpl(PrivilegeLevel::Ring3);
 

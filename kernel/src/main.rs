@@ -15,6 +15,7 @@ mod fs;
 mod gdt;
 mod idt;
 mod memory;
+mod mouse;
 mod pic8259;
 mod pit;
 mod process;
@@ -94,11 +95,15 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     fat32::init().expect("Failed to initialize FAT32 file system");
     println!("FAT32 setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
+    // Initialize mouse
+    /*mouse::init().expect("Failed to initialize mouse");
+    println!("Mouse setup\t\t\t\t\t[ \\gSUCCESS\\w ]");*/
+
     let user1 = FAT32
         .lock()
         .as_ref()
         .unwrap()
-        .read_file("USER/USER1")
+        .read_file("USER/programma_con_un_nome_molto_lungo")
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());

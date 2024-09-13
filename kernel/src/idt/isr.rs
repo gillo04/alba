@@ -55,6 +55,11 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
     end_of_interrupt(1);
 }
 
+pub extern "x86-interrupt" fn mouse_handler(_stack_frame: InterruptStackFrame) {
+    println!("mouse!");
+    loop {}
+}
+
 pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) {
     let mut ctx = Context::capture_regs();
 

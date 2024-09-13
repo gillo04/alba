@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use core::str::FromStr;
+
 use super::{print, println, Mutex};
 use crate::ata::*;
 use crate::drive::Drive;
@@ -7,6 +9,7 @@ use crate::fs::*;
 use crate::memory::{VirtualMapping, KERNEL_VALLOCATOR, MEMORY_MANAGER};
 use crate::utils::clear_page;
 use alloc::string::*;
+use alloc::vec;
 use alloc::vec::*;
 
 pub static FAT32: Mutex<Option<Fat32Fs<AtaDrive48>>> = Mutex::new(None);
@@ -56,8 +59,9 @@ impl<D: Drive> Fat32Fs<D> {
         sector as u64
     }
 
-    pub fn read_directory(&self, cluseter: u32) -> &[StandardDirectory] {
+    pub fn read_directory(&self, cluseter: u32) -> Vec<DirectoryEntry> {
         let buffer = MEMORY_MANAGER.lock().physical_map.alloc_frame() as *const StandardDirectory;
+        let mut dirs: Vec<DirectoryEntry> = vec![];
 
         self.drive.read_sectors(
             self.cluster_to_sector(cluseter) as u64,
@@ -69,17 +73,62 @@ impl<D: Drive> Fat32Fs<D> {
             * self.boot_sector.bpd.bytes_per_sector
             / size_of::<StandardDirectory>() as u16;
 
+        let mut lfn_buffer = String::new();
         for i in 0..max_entries {
             let base = unsafe { buffer.offset(i as isize) };
-            let byte_array = base as *const u8;
 
+            let byte_array = base as *const u8;
             if unsafe { *byte_array } == 0 {
-                max_entries = i;
                 break;
+            }
+
+            let dir = unsafe { &*(buffer as *const StandardDirectory).offset(i as isize) };
+            if dir.attributes == StandardDirectoryAttributes::Lfn {
+                let dir = unsafe { &*(buffer as *const LongFileName).offset(i as isize) };
+                let mut s1 = &{ dir.filename1 }[..];
+                for (i, c) in s1.iter().enumerate() {
+                    if *c == 0xffff || *c == 0 {
+                        s1 = &s1[..i];
+                        break;
+                    }
+                }
+
+                let mut s2 = &{ dir.filename2 }[..];
+                for (i, c) in s2.iter().enumerate() {
+                    if *c == 0xffff || *c == 0 {
+                        s2 = &s2[..i];
+                        break;
+                    }
+                }
+                let mut s3 = &{ dir.filename3 }[..];
+                for (i, c) in s3.iter().enumerate() {
+                    if *c == 0xffff || *c == 0 {
+                        s3 = &s3[..i];
+                        break;
+                    }
+                }
+
+                let s1 = String::from_utf16(s1).unwrap();
+                let s2 = String::from_utf16(s2).unwrap();
+                let s3 = String::from_utf16(s3).unwrap();
+                lfn_buffer = s1 + &s2 + &s3 + &lfn_buffer;
+            } else {
+                let s = core::str::from_utf8(&dir.filename).unwrap();
+                dirs.push(DirectoryEntry {
+                    name: if lfn_buffer.len() == 0 {
+                        String::from(s)
+                    } else {
+                        lfn_buffer.clone()
+                    },
+                    cluster: dir.first_cluster_low as u32 | ((dir.first_cluster_high as u32) << 16),
+                    size: dir.file_size_bytes,
+                    attributes: dir.attributes,
+                });
+                lfn_buffer.clear();
             }
         }
 
-        unsafe { core::slice::from_raw_parts(buffer, max_entries as usize) }
+        dirs
     }
 
     fn path_to_cluster(&self, path: &str) -> Result<(u32, u64), &str> {
@@ -101,15 +150,11 @@ impl<D: Drive> Fat32Fs<D> {
         let next = path.peek();
         let directory = self.read_directory(cluster);
         for entry in directory.iter() {
-            let entry_name = core::str::from_utf8(&entry.filename).unwrap().trim();
-            let next_cluster =
-                ((entry.first_cluster_high as u32) << 16) | entry.first_cluster_low as u32;
-            let size = entry.file_size_bytes as u64;
-            if entry_name == this {
+            if entry.name.trim() == this {
                 if next.is_some() {
-                    return self.recursive_path_to_cluster(path, next_cluster);
+                    return self.recursive_path_to_cluster(path, entry.cluster);
                 } else {
-                    return Ok((next_cluster, size));
+                    return Ok((entry.cluster, entry.size as u64));
                 }
             }
         }
@@ -161,17 +206,13 @@ impl<D: Drive> Fat32Fs<D> {
                 print!(" ");
             }
 
-            let name = core::str::from_utf8(&file.filename).unwrap().trim();
-            if name != "."
-                && name != ".."
-                && file.attributes as u32 & StandardDirectoryAttributes::Hidden as u32 == 0
+            let name = file.name.trim();
+            if name != "." && name != ".."
+            // && file.attributes as u32 & StandardDirectoryAttributes::Hidden as u32 == 0
             {
-                println!("{}", core::str::from_utf8(&file.filename).unwrap());
+                println!("{}", file.name);
                 if file.attributes as u32 & StandardDirectoryAttributes::Directory as u32 != 0 {
-                    self.dfs(
-                        file.first_cluster_low as u32 | ((file.first_cluster_high as u32) << 16),
-                        depth + 1,
-                    );
+                    self.dfs(file.cluster, depth + 1);
                 }
             }
         }
@@ -242,6 +283,15 @@ struct Fat32Ebpd {
     pub fat_type_label: [u8; 8],
 }
 
+#[derive(Debug)]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub cluster: u32,
+    pub size: u32,
+    pub attributes: StandardDirectoryAttributes,
+}
+
+#[derive(Debug)]
 #[repr(C, packed)]
 pub struct StandardDirectory {
     pub filename: [u8; 11],
@@ -258,7 +308,19 @@ pub struct StandardDirectory {
     pub file_size_bytes: u32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[repr(C, packed)]
+pub struct LongFileName {
+    pub order: u8,
+    pub filename1: [u16; 5],
+    pub lfn_attribute: u8,
+    pub t: u8,
+    pub checksum: u8,
+    pub filename2: [u16; 6],
+    pub _reserved: u16,
+    pub filename3: [u16; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum StandardDirectoryAttributes {
     ReadOnly = 0x01,
@@ -267,5 +329,5 @@ pub enum StandardDirectoryAttributes {
     VolumeId = 0x08,
     Directory = 0x10,
     Archive = 0x20,
-    Lfn = 0x3f,
+    Lfn = 0xf,
 }

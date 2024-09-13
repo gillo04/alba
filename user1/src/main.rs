@@ -20,16 +20,16 @@ extern "C" fn main() {
         width: Dimension::Percentage(1.0),
         height: Dimension::Absolute(50),
         margin_y: 5,
-        fill: Fill::Solid(0xff00),
+        fill: Fill::Solid(0x777777),
         ..Default::default()
     };
     let card = GuiRect {
         width: Dimension::Percentage(0.5),
         height: Dimension::Absolute(300),
-        fill: Fill::Solid(0xff0000),
+        fill: Fill::Solid(0xbbbbbb),
         margin_x: 5,
         margin_y: 5,
-        padding_x: 5,
+        padding_x: 10,
         padding_y: 5,
         children: vec![slab.clone(), slab.clone(), slab.clone()],
         ..Default::default()
@@ -49,6 +49,7 @@ extern "C" fn main() {
     println!("\n\n\n");
     let mut direction = 1;
     let mut width = 250;
+    let mut prev_time = get_milliseconds_since_startup();
     loop {
         width += direction;
         if width >= 500 || width <= 100 {
@@ -58,5 +59,7 @@ extern "C" fn main() {
 
         draw_gui_tree(&gui_root, &mut sbuffer);
         sbuffer.put();
+        while get_milliseconds_since_startup() - prev_time < 6 {}
+        prev_time = get_milliseconds_since_startup();
     }
 }

@@ -21,11 +21,11 @@ mcopy -i alba.img kernel/target/x86_64-unknown-uefi/release/kernel.efi\
 
 mmd -i alba.img ::/USER
 mcopy -i alba.img user1/target/x86_64-unknown-none/release/user1\
-  ::/USER/USER1
+  ::/USER/programma_con_un_nome_molto_lungo
 mcopy -i alba.img user2/target/x86_64-unknown-none/release/user2\
   ::/USER/USER2
 mcopy -i alba.img logo/alba_logo.ppm\
   ::/USER/LOGO.PPM
 
 # Run
-qemu-system-x86_64 -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none
+qemu-system-x86_64 -monitor stdio -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none
