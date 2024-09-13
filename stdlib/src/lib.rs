@@ -12,6 +12,8 @@ pub extern crate alloc;
 use fs::*;
 use graphics::*;
 
+use alloc::vec::*;
+use alloc::*;
 use core::arch::asm;
 use core::panic::PanicInfo;
 

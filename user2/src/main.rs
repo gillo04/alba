@@ -28,7 +28,7 @@ extern "C" fn main() {
             direction = -direction;
         }
         sbuffer.clear(0);
-        sbuffer.draw(&circ);
+        circ.draw(&mut sbuffer);
         sbuffer.put();
     }
 }

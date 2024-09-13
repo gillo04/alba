@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+pub mod gui;
+
 use super::*;
 pub struct Image {
     pub file: File,
@@ -87,8 +89,8 @@ impl Image {
     }
 }
 
-impl Draw for Image {
-    fn draw(&self, sb: &mut ScreenBuffer) {
+impl Image {
+    pub fn draw(&self, sb: &mut ScreenBuffer) {
         for i in 0..self.height {
             for j in 0..self.width {
                 let r = unsafe {
@@ -116,114 +118,6 @@ impl Draw for Image {
     }
 }
 
-/*pub struct Image {
-    pub file: File,
-    pub width: u64,
-    pub height: u64,
-    pub x: u64,
-    pub y: u64,
-}
-
-impl Image {
-    pub fn new(file: File, x: u64, y: u64) -> Result<Image, &'static str> {
-        // Check signature
-        let signature = unsafe { *(file.ptr as *const u64) };
-        if signature != 0x0a1a0a0d474e5089 {
-            return Err("Invalid PNG signature");
-        }
-
-        // Iterate through chunks
-        let mut size: Option<(u64, u64)> = None;
-        let mut bit_depth = 0;
-        let mut color_type = 0;
-        let mut interlace = 0;
-        let mut pos = 8;
-        while pos < file.size {
-            unsafe {
-                let str = core::str::from_raw_parts_mut((file.ptr + 4 + pos) as *mut u8, 4);
-                if str == "IHDR" {
-                    size = Some((
-                        (*((file.ptr + pos + 8) as *const u32)).swap_bytes() as u64,
-                        (*((file.ptr + pos + 8 + 4) as *const u32)).swap_bytes() as u64,
-                    ));
-                    bit_depth = *((file.ptr + pos + 8 + 8) as *const u8);
-                    color_type = *((file.ptr + pos + 8 + 9) as *const u8);
-                    interlace = *((file.ptr + pos + 8 + 12) as *const u8);
-
-                    if interlace != 0 {
-                        return Err("Interlace is unsuppored");
-                    }
-
-                    if color_type != 6 {
-                        return Err("Unsupported color type");
-                    }
-                } else if str == "PLTE" {
-                    return Err("Palettes are unsupported");
-                }
-
-                pos += (*((file.ptr + pos) as *const u32)).swap_bytes() as u64 + 4 * 3;
-            }
-        }
-
-        let size = match size {
-            Some(size) => size,
-            None => return Err("IHDR chunk not present"),
-        };
-
-        let img = Image {
-            file,
-            width: size.0,
-            height: size.1,
-            x,
-            y,
-        };
-        Ok(img)
-    }
-}
-
-impl Draw for Image {
-    fn draw(&self, sb: &mut ScreenBuffer) {
-        let mut pos = 8;
-        let mut i = self.x + self.y * sb.w;
-        let mut zlib_header: Option<u16> = None;
-        let mut prev_color = 0;
-        let mut line_counter = 0;
-        while pos < self.file.size {
-            unsafe {
-                let size = (*((self.file.ptr + pos) as *const u32)).swap_bytes() as u64;
-                let str = core::str::from_raw_parts_mut((self.file.ptr + 4 + pos) as *mut u8, 4);
-                if str == "IDAT" {
-                    let dptr = (self.file.ptr + pos + 8 + 2) as u64;
-                    // println!("p:{:x}", *(dptr as *const u8));
-                    for j in 0..size - 2 {
-                        if line_counter == 0 {
-                            line_counter = self.width;
-                            continue;
-                        }
-                        let color = *((dptr + j) as *const u32);
-                        sb.base[i as usize] = color;
-                        prev_color = color;
-                        i += 1;
-                        line_counter -= 1;
-                    }
-                    return;
-                }
-
-                pos += size + 4 * 3;
-            }
-        }
-    }
-}*/
-
-#[derive(Clone, Copy)]
-pub enum ColorType {
-    Grayscale = 0,
-    Truecolor = 2,
-    Indexed = 3,
-    GrayscaleAlpha = 4,
-    TruecolorAlpha = 6,
-}
-
 pub struct Circle {
     pub x: i64,
     pub y: i64,
@@ -231,8 +125,8 @@ pub struct Circle {
     pub color: u32,
 }
 
-impl Draw for Circle {
-    fn draw(&self, sb: &mut ScreenBuffer) {
+impl Circle {
+    pub fn draw(&self, sb: &mut ScreenBuffer) {
         // Bounds checking
         let rect_x = i64::clamp(self.x - self.r as i64, 0, sb.w as i64);
         let rect_y = i64::clamp(self.y - self.r as i64, 0, sb.h as i64);
@@ -258,11 +152,11 @@ pub struct Rectangle {
     pub y: i64,
     pub w: u64,
     pub h: u64,
-    pub fill: Fill,
+    pub color: u32,
 }
 
-impl Draw for Rectangle {
-    fn draw(&self, sb: &mut ScreenBuffer) {
+impl Rectangle {
+    pub fn draw(&self, sb: &mut ScreenBuffer) {
         // Bounds checking
         if self.x >= sb.w as i64 || self.y >= sb.w as i64 {
             return;
@@ -275,45 +169,11 @@ impl Draw for Rectangle {
         for i in y..bottom {
             for j in x..right {
                 unsafe {
-                    sb.base[(i * sb.w as i64 + j) as usize] =
-                        self.fill
-                            .resolve((j - self.x) as u64, (i - self.y) as u64, self.w, self.h);
+                    sb.base[(i * sb.w as i64 + j) as usize] = self.color;
                 }
             }
         }
     }
-}
-
-pub enum Fill {
-    Solid(u32),
-    Gradient(u32, u32),
-}
-
-impl Fill {
-    pub fn resolve(&self, x: u64, y: u64, w: u64, h: u64) -> u32 {
-        match *self {
-            Fill::Solid(color) => color,
-            Fill::Gradient(a, b) => {
-                let ra = (a >> 16) & 0xff;
-                let ga = (a >> 8) & 0xff;
-                let ba = a & 0xff;
-
-                let rb = (b >> 16) & 0xff;
-                let gb = (b >> 8) & 0xff;
-                let bb = b & 0xff;
-
-                let t = x as f32 / w as f32;
-                let rc = (ra as f32 + t * (rb as f32 - ra as f32)) as u32;
-                let gc = (ga as f32 + t * (gb as f32 - ga as f32)) as u32;
-                let bc = (ba as f32 + t * (bb as f32 - ba as f32)) as u32;
-                (rc << 16) | (gc << 8) | bc
-            }
-        }
-    }
-}
-
-pub trait Draw {
-    fn draw(&self, sb: &mut ScreenBuffer);
 }
 
 pub struct ScreenBuffer<'a> {
@@ -350,10 +210,6 @@ impl ScreenBuffer<'_> {
                 }
             }
         }
-    }
-
-    pub fn draw(&mut self, obj: &impl Draw) {
-        obj.draw(self);
     }
 }
 
