@@ -3,6 +3,7 @@ use core::fmt::Write;
 use super::InterruptStackFrame;
 use super::{super::print, println};
 use crate::fat32::*;
+use crate::memory::*;
 use crate::pic8259::*;
 use crate::pit::*;
 use crate::process::*;
@@ -18,9 +19,6 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
 
-    unsafe {
-        PROCESS_LIST.force_unlock();
-    }
     let mut current_process = 0;
     let active = PROCESS_LIST.lock().multitasking_active;
     if active {
@@ -106,9 +104,6 @@ pub extern "x86-interrupt" fn get_screen_size(stack_frame: InterruptStackFrame) 
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
 
-    unsafe {
-        PROCESS_LIST.force_unlock();
-    }
     let mut current_process = PROCESS_LIST.lock().current_process;
     PROCESS_LIST.lock().processes[current_process].context = ctx;
 
@@ -126,9 +121,6 @@ pub extern "x86-interrupt" fn load_file(stack_frame: InterruptStackFrame) {
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
 
-    unsafe {
-        PROCESS_LIST.force_unlock();
-    }
     let mut current_process = PROCESS_LIST.lock().current_process;
     PROCESS_LIST.lock().processes[current_process].context = ctx;
 
@@ -151,6 +143,43 @@ pub extern "x86-interrupt" fn load_file(stack_frame: InterruptStackFrame) {
 
     PROCESS_LIST.lock().processes[current_process].context.rdx = ptr;
     PROCESS_LIST.lock().processes[current_process].context.r8 = size;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn get_milliseconds_since_startup(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    PROCESS_LIST.lock().processes[current_process].context.rax = *MILLISECONDS_SINCE_STARTUP.lock();
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn alloc_pages(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    let page_count = PROCESS_LIST.lock().processes[current_process].context.rax;
+
+    let mapping = KERNEL_VALLOCATOR.lock().alloc_pages(page_count);
+    let vaddr = mapping.vaddr;
+    PROCESS_LIST.lock().processes[current_process]
+        .mappings
+        .push(mapping);
+
+    PROCESS_LIST.lock().processes[current_process].context.rcx = vaddr;
     // END OF INTERRUPT CODE
 
     PROCESS_LIST.lock().processes[current_process].reenter();

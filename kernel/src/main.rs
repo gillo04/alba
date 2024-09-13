@@ -23,13 +23,11 @@ mod stdout;
 mod uefi;
 mod utils;
 
-use ata::*;
 use core::arch::asm;
 use core::ffi::c_void;
 use elf::ElfExecutable;
 use fat32::*;
 use fs::*;
-use memory::MEMORY_MANAGER;
 use process::*;
 use spin::mutex::Mutex;
 use uefi::SystemTable;

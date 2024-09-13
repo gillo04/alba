@@ -72,6 +72,7 @@ impl Process {
         self.context.load_regs();
 
         unsafe {
+            PROCESS_LIST.force_unlock();
             asm!("iretq");
         }
     }

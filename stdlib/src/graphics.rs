@@ -258,7 +258,7 @@ pub struct Rectangle {
     pub y: i64,
     pub w: u64,
     pub h: u64,
-    pub color: u32,
+    pub fill: Fill,
 }
 
 impl Draw for Rectangle {
@@ -275,8 +275,38 @@ impl Draw for Rectangle {
         for i in y..bottom {
             for j in x..right {
                 unsafe {
-                    sb.base[(i * sb.w as i64 + j) as usize] = self.color;
+                    sb.base[(i * sb.w as i64 + j) as usize] =
+                        self.fill
+                            .resolve((j - self.x) as u64, (i - self.y) as u64, self.w, self.h);
                 }
+            }
+        }
+    }
+}
+
+pub enum Fill {
+    Solid(u32),
+    Gradient(u32, u32),
+}
+
+impl Fill {
+    pub fn resolve(&self, x: u64, y: u64, w: u64, h: u64) -> u32 {
+        match *self {
+            Fill::Solid(color) => color,
+            Fill::Gradient(a, b) => {
+                let ra = (a >> 16) & 0xff;
+                let ga = (a >> 8) & 0xff;
+                let ba = a & 0xff;
+
+                let rb = (b >> 16) & 0xff;
+                let gb = (b >> 8) & 0xff;
+                let bb = b & 0xff;
+
+                let t = x as f32 / w as f32;
+                let rc = (ra as f32 + t * (rb as f32 - ra as f32)) as u32;
+                let gc = (ga as f32 + t * (gb as f32 - ga as f32)) as u32;
+                let bc = (ba as f32 + t * (bb as f32 - ba as f32)) as u32;
+                (rc << 16) | (gc << 8) | bc
             }
         }
     }

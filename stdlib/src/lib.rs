@@ -1,9 +1,13 @@
 #![no_std]
 #![allow(unused)]
 #![feature(str_from_raw_parts)]
+#![feature(const_mut_refs)]
 
 pub mod fs;
 pub mod graphics;
+pub mod heap;
+
+pub extern crate alloc;
 
 use fs::*;
 use graphics::*;
@@ -13,7 +17,7 @@ use core::panic::PanicInfo;
 
 #[panic_handler]
 fn panic_handler(panic_info: &PanicInfo) -> ! {
-    println!("{}", panic_info);
+    println!("USERSPACE: {}", panic_info);
     loop {}
 }
 
@@ -51,4 +55,20 @@ impl core::fmt::Write for StdOut {
         }
         Ok(())
     }
+}
+
+pub fn get_milliseconds_since_startup() -> u64 {
+    let mut ms: u64;
+    unsafe {
+        asm!("int 0x44", out("rax") ms);
+    }
+    ms
+}
+
+pub fn alloc_pages(page_count: u64) -> u64 {
+    let mut addr: u64;
+    unsafe {
+        asm!("int 0x45", in("rax") page_count, out("rcx") addr);
+    }
+    addr
 }
