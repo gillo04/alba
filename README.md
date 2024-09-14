@@ -1,6 +1,8 @@
 # Alba OS
 Alba OS is a 64 bit x86_64 multitasking operating system written in Rust.
 
+![Alba OS logo](./logo/alba_logo.png)
+
 ## Planned features
 - [x] Framebuffer console
 - [x] Virtual memory map
