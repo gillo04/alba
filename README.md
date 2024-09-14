@@ -20,7 +20,7 @@ Alba OS is a 64 bit x86_64 multitasking operating system written in Rust.
 ## Building and running
 To build a disk image of the OS, run the `build.sh` script at the root of the project:
 
-  sh build.sh
+    sh build.sh
 
 This will create a `alba.img` file at the root of the project and open quemu to run it.
 
