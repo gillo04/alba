@@ -13,6 +13,9 @@ const SECONDARY_CONTROL_BASE: u16 = 0x376;
 pub static ATA_DRIVE_48: Mutex<AtaDrive48> = Mutex::new(AtaDrive48::new());
 
 pub fn init() -> Result<(), &'static str> {
+    if AtaBus::primary().get_status() == 0xff {
+        return Err("Primary bus floating");
+    }
     *ATA_DRIVE_48.lock() = AtaBus::primary().identify(DriveSelector::Master)?;
     Ok(())
 }

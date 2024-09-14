@@ -83,7 +83,7 @@ impl Process {
             for i in 0..m.frames.len() {
                 unsafe {
                     asm!(
-                        "invlpg {}",
+                        "invlpg [{}]",
                         in(reg) m.vaddr + i as u64 * 0x1000
                     );
                 }
