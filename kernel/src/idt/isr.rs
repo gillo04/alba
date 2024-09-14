@@ -28,6 +28,7 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
         } else {
             PROCESS_LIST.lock().processes[current_process].context = ctx;
         }
+        PROCESS_LIST.lock().processes[current_process].invalidate_tlb();
     }
 
     *MILLISECONDS_SINCE_STARTUP.lock() += 1;
@@ -91,14 +92,18 @@ pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame
     if y + h >= frame_buffer.height {
         h = frame_buffer.height - y;
     }
+    let base = frame_buffer.base as *mut u32;
 
     for i in 0..h {
-        for j in 0..w {
-            unsafe {
-                *(frame_buffer.base as *mut u32)
-                    .offset(((y + i) * frame_buffer.pixels_per_scanline + (x + j)) as isize) =
-                    *(buffer as *mut u32).offset((i * w + j) as isize);
-            }
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                buffer.offset((i * w) as isize),
+                base.offset(((y + i) * frame_buffer.pixels_per_scanline + x) as isize),
+                w as usize,
+            );
+            /*(frame_buffer.base as *mut u32)
+            .offset(((y + i) * frame_buffer.pixels_per_scanline + (x + j)) as isize) =
+            *(buffer as *mut u32).offset((i * w + j) as isize);*/
         }
     }
 }

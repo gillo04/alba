@@ -203,13 +203,7 @@ impl ScreenBuffer<'_> {
     }
 
     pub fn clear(&mut self, color: u32) {
-        for i in 0..self.h {
-            for j in 0..self.w {
-                unsafe {
-                    self.base[(i * self.w + j) as usize] = color;
-                }
-            }
-        }
+        self.base.fill(color);
     }
 }
 

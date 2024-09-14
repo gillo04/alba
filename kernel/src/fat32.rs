@@ -131,7 +131,7 @@ impl<D: Drive> Fat32Fs<D> {
         dirs
     }
 
-    fn path_to_cluster(&self, path: &str) -> Result<(u32, u64), &str> {
+    fn path_to_cluster(&self, path: &str) -> Result<DirectoryEntry, &str> {
         self.recursive_path_to_cluster(path.split("/").peekable(), 2)
     }
 
@@ -140,7 +140,7 @@ impl<D: Drive> Fat32Fs<D> {
         &self,
         mut path: core::iter::Peekable<core::str::Split<&str>>,
         cluster: u32,
-    ) -> Result<(u32, u64), &str> {
+    ) -> Result<DirectoryEntry, &str> {
         let this = path.next();
         if this == None {
             return Err("File not found");
@@ -154,7 +154,7 @@ impl<D: Drive> Fat32Fs<D> {
                 if next.is_some() {
                     return self.recursive_path_to_cluster(path, entry.cluster);
                 } else {
-                    return Ok((entry.cluster, entry.size as u64));
+                    return Ok(entry.clone());
                 }
             }
         }
@@ -221,10 +221,10 @@ impl<D: Drive> Fat32Fs<D> {
 
 impl<D: Drive> Fs for Fat32Fs<D> {
     fn read_file(&self, path: &str) -> Result<File, &str> {
-        let (cluster, size) = self.path_to_cluster(path)?;
+        let entry = self.path_to_cluster(path)?;
         Ok(File {
-            mapping: self.read_cluster_chain(cluster),
-            size,
+            mapping: self.read_cluster_chain(entry.cluster),
+            size: entry.size as u64,
         })
     }
 }
@@ -283,7 +283,7 @@ struct Fat32Ebpd {
     pub fat_type_label: [u8; 8],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DirectoryEntry {
     pub name: String,
     pub cluster: u32,

@@ -28,4 +28,4 @@ mcopy -i alba.img logo/alba_logo.ppm\
   ::/USER/LOGO.PPM
 
 # Run
-qemu-system-x86_64 -monitor stdio -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none
+qemu-system-x86_64 -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name NOLIBOS -machine pc -net none

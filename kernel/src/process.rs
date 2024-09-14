@@ -63,7 +63,8 @@ impl Process {
         for m in &self.mappings {
             plm4.map_mapping_user(m);
         }
-        MEMORY_MANAGER.lock().set_plm4(plm4);
+        // Flush cr3
+        // MEMORY_MANAGER.lock().set_plm4(plm4);
 
         // Create stack guard page
         plm4.unmap(USER_STACK_BASE - 0x1000);
@@ -74,6 +75,19 @@ impl Process {
         unsafe {
             PROCESS_LIST.force_unlock();
             asm!("iretq");
+        }
+    }
+
+    pub fn invalidate_tlb(&self) {
+        for m in &self.mappings {
+            for i in 0..m.frames.len() {
+                unsafe {
+                    asm!(
+                        "invlpg {}",
+                        in(reg) m.vaddr + i as u64 * 0x1000
+                    );
+                }
+            }
         }
     }
 }
