@@ -90,31 +90,31 @@ impl Image {
 }
 
 impl Image {
-    pub fn draw(&self, sb: &mut ScreenBuffer) {
-        for i in 0..self.height {
-            for j in 0..self.width {
-                let r = unsafe {
-                    *((self.file.ptr
-                        + self.start
-                        + (i as u64 * self.width as u64 + j as u64) * 3
-                        + 0) as *const u8)
-                };
-                let g = unsafe {
-                    *((self.file.ptr
-                        + self.start
-                        + (i as u64 * self.width as u64 + j as u64) * 3
-                        + 1) as *const u8)
-                };
-                let b = unsafe {
-                    *((self.file.ptr
-                        + self.start
-                        + (i as u64 * self.width as u64 + j as u64) * 3
-                        + 2) as *const u8)
-                };
-                sb.base[((self.y + i as u64) * sb.w + self.x + j as u64) as usize] =
-                    ((r as u32) << 16) | ((g as u32) << 8) | b as u32;
+    pub fn draw(&self, sb: &mut ScreenBuffer, width: u64, height: u64) {
+        for i in 0..height {
+            let y = i * self.height as u64 / height;
+            for j in 0..width {
+                let x = j * self.width as u64 / width;
+                let color = self.get_pixel(x, y);
+                sb.base[((self.y + i as u64) * sb.w + self.x + j as u64) as usize] = color;
             }
         }
+    }
+
+    fn get_pixel(&self, x: u64, y: u64) -> u32 {
+        let r = unsafe {
+            *((self.file.ptr + self.start + (y as u64 * self.width as u64 + x as u64) * 3 + 0)
+                as *const u8)
+        };
+        let g = unsafe {
+            *((self.file.ptr + self.start + (y as u64 * self.width as u64 + x as u64) * 3 + 1)
+                as *const u8)
+        };
+        let b = unsafe {
+            *((self.file.ptr + self.start + (y as u64 * self.width as u64 + x as u64) * 3 + 2)
+                as *const u8)
+        };
+        ((r as u32) << 16) | ((g as u32) << 8) | b as u32
     }
 }
 
