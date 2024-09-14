@@ -11,6 +11,11 @@ cd user2
 cargo build --release
 cd ..
 
+
+cd gui_demo 
+cargo build --release
+cd ..
+
 # Create image
 dd if=/dev/zero of=alba.img bs=1M count=64 
 mformat -F -i alba.img ::
@@ -21,9 +26,11 @@ mcopy -i alba.img kernel/target/x86_64-unknown-uefi/release/kernel.efi\
 
 mmd -i alba.img ::/USER
 mcopy -i alba.img user1/target/x86_64-unknown-none/release/user1\
-  ::/USER/programma_con_un_nome_molto_lungo
+  ::/USER/USER1
 mcopy -i alba.img user2/target/x86_64-unknown-none/release/user2\
   ::/USER/USER2
+mcopy -i alba.img gui_demo/target/x86_64-unknown-none/release/gui_demo\
+  ::/USER/GUI_DEMO
 mcopy -i alba.img logo/alba_logo.ppm\
   ::/USER/LOGO.PPM
 

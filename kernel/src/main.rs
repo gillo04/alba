@@ -103,7 +103,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .lock()
         .as_ref()
         .unwrap()
-        .read_file("USER/programma_con_un_nome_molto_lungo")
+        .read_file("USER/USER1")
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());
@@ -118,6 +118,16 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     let user2 = ElfExecutable::new(user2);
     let user2 = Process::new(user2.load_all(), user2.get_entry());
     PROCESS_LIST.lock().processes.push(user2);
+
+    let gui_demo = FAT32
+        .lock()
+        .as_ref()
+        .unwrap()
+        .read_file("USER/GUI_DEMO")
+        .unwrap();
+    let gui_demo = ElfExecutable::new(gui_demo);
+    let gui_demo = Process::new(gui_demo.load_all(), gui_demo.get_entry());
+    PROCESS_LIST.lock().processes.push(gui_demo);
 
     println!("Elf files loaded");
     PROCESS_LIST.lock().multitasking_active = true;

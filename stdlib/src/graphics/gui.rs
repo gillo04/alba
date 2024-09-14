@@ -150,7 +150,7 @@ impl GuiRect<'_> {
         } else if relative_height.is_some() {
             let img_dimensions = relative_height.unwrap();
             resolved.height =
-                (img_dimensions.0 as f32 / img_dimensions.1 as f32 * resolved.width as f32) as u64;
+                (img_dimensions.1 as f32 / img_dimensions.0 as f32 * resolved.width as f32) as u64;
         }
         resolved
     }

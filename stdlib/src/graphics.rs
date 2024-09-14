@@ -3,6 +3,54 @@
 pub mod gui;
 
 use super::*;
+
+pub struct Line {
+    pub x1: i64,
+    pub y1: i64,
+    pub x2: i64,
+    pub y2: i64,
+    pub color: u32,
+}
+
+impl Line {
+    pub fn draw(&self, sb: &mut ScreenBuffer) {
+        let dx = self.x2 - self.x1;
+        let dy = self.y2 - self.y1;
+
+        /*let mut x1 = i64::min(self.x1, self.x2);
+        let mut x2 = i64::max(self.x1, self.x2);
+        let mut y1 = i64::min(self.y1, self.y2);
+        let mut y2 = i64::max(self.y1, self.y2);*/
+
+        let mut step_x = 0;
+        let mut step_y = 0;
+        let mut step_count = 0;
+        if dx.abs() > dy.abs() {
+            step_x = dx / dy.abs();
+            step_y = 1 * dy.signum();
+            step_count = dy.abs();
+        } else {
+            step_x = 1 * dx.signum();
+            step_y = dy / dx.abs();
+            step_count = dx.abs();
+        }
+
+        let mut x = self.x1;
+        let mut y = self.y1;
+        while step_count > 0 {
+            for i in 0..step_x.abs() {
+                sb.base[(y * sb.w as i64 + x + i * dx.signum()) as usize] = self.color;
+            }
+            for i in 0..step_y.abs() {
+                sb.base[((y + i * dy.signum()) * sb.w as i64 + x) as usize] = self.color;
+            }
+            x += step_x;
+            y += step_y;
+            step_count -= 1;
+        }
+    }
+}
+
 pub struct Image {
     pub file: File,
     pub width: u32,
@@ -138,8 +186,8 @@ impl Circle {
         let rect_bottom = i64::clamp(self.y + self.r as i64, 0, sb.h as i64);
 
         let r2 = self.r.pow(2);
-        for i in rect_x..rect_right {
-            for j in rect_y..rect_bottom {
+        for i in rect_y..rect_bottom {
+            for j in rect_x..rect_right {
                 let distance = (j - self.x).pow(2) + (i - self.y).pow(2);
                 if distance < r2 as i64 {
                     unsafe {
@@ -205,6 +253,15 @@ impl ScreenBuffer<'_> {
             );
         }
     }
+
+    /*#[inline]
+    pub fn bound_checked_put_pixel(&mut self, x: i64, y: i64, color: u32) {
+        if x < 0 || x >= self.w || y < 0 || y >= self.h {
+            return;
+        }
+
+        self.base[(y*self.w as isize + x) as usize] = color;
+    }*/
 
     pub fn clear(&mut self, color: u32) {
         self.base.fill(color);
