@@ -7,13 +7,11 @@ pub struct Image {
     pub file: File,
     pub width: u32,
     pub height: u32,
-    pub x: u64,
-    pub y: u64,
     pub start: u64,
 }
 
 impl Image {
-    pub fn new(file: File, x: u64, y: u64) -> Result<Image, &'static str> {
+    pub fn new(file: File) -> Result<Image, &'static str> {
         if unsafe { *(file.ptr as *const u16) } != 0x3650 {
             return Err("Invalid format");
         }
@@ -81,8 +79,6 @@ impl Image {
             file,
             width,
             height,
-            x: 0,
-            y: 0,
             start,
         };
         Ok(out)
@@ -90,13 +86,21 @@ impl Image {
 }
 
 impl Image {
-    pub fn draw(&self, sb: &mut ScreenBuffer, width: u64, height: u64) {
-        for i in 0..height {
-            let y = i * self.height as u64 / height;
-            for j in 0..width {
-                let x = j * self.width as u64 / width;
+    pub fn draw(&self, sb: &mut ScreenBuffer, sx: i64, sy: i64, width: u64, height: u64) {
+        // Bounds checking
+        let left = i64::clamp(sx, 0, sb.w as i64) as u64;
+        let top = i64::clamp(sy, 0, sb.h as i64) as u64;
+        let right = i64::clamp(sx + width as i64, 0, sb.w as i64) as u64;
+        let bottom = i64::clamp(sy + height as i64, 0, sb.h as i64) as u64;
+
+        let mut start_x = if sx < 0 { -sx } else { 0 } as u64;
+        let mut start_y = if sy < 0 { -sy } else { 0 } as u64;
+        for i in top..bottom {
+            let y = (start_y + i - top) as u64 * self.height as u64 / height;
+            for j in left..right {
+                let x = (start_x + j - left) as u64 * self.width as u64 / width;
                 let color = self.get_pixel(x, y);
-                sb.base[((self.y + i as u64) * sb.w + self.x + j as u64) as usize] = color;
+                sb.base[(i as u64 * sb.w + j as u64) as usize] = color;
             }
         }
     }

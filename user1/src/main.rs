@@ -14,24 +14,16 @@ use stdlib::*;
 extern "C" fn main() {
     stdlib::heap::init().unwrap();
 
-    let img = Image::new(File::load("USER/LOGO    PPM").unwrap(), 0, 0).unwrap();
+    let img = Image::new(File::load("USER/LOGO    PPM").unwrap()).unwrap();
 
-    let mut buffer = vec![0x0u32; 600 * 500];
-    let mut sbuffer = ScreenBuffer::new(0, 0, 600, 500, &mut buffer[..]);
-
-    img.draw(&mut sbuffer, 600, 500);
-    sbuffer.put();
-    loop {}
-    /*
     let mut buffer = vec![0x0u32; 500 * 500];
     let mut sbuffer = ScreenBuffer::new(0, 0, 500, 500, &mut buffer[..]);
-
     // Build GUI tree
     let slab = GuiRect {
         width: Dimension::Percentage(1.0),
-        height: Dimension::Absolute(50),
+        height: Dimension::Relative,
         margin_y: 5,
-        fill: Fill::Solid(0x777777),
+        fill: Fill::Image(&img),
         ..Default::default()
     };
     let card = GuiRect {
@@ -72,5 +64,5 @@ extern "C" fn main() {
         sbuffer.put();
         while get_milliseconds_since_startup() - prev_time < 6 {}
         prev_time = get_milliseconds_since_startup();
-    }*/
+    }
 }
