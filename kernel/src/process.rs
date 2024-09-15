@@ -64,7 +64,7 @@ impl Process {
             plm4.map_mapping_user(m);
         }
         // Flush cr3
-        // MEMORY_MANAGER.lock().set_plm4(plm4);
+        MEMORY_MANAGER.lock().set_plm4(plm4);
 
         // Create stack guard page
         plm4.unmap(USER_STACK_BASE - 0x1000);

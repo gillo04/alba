@@ -66,7 +66,8 @@ pub fn init_virtual(system_table: *const SystemTable) -> Result<(), Status> {
         let fb_page_count =
             s.frame_buffer.pixels_per_scanline * s.frame_buffer.height * 4 / 0x1000 + 1;
         for i in 0..fb_page_count {
-            plm4.map(fb_base + i * 0x1000, fb_base + i * 0x1000, 3);
+            let pte = plm4.map(fb_base + i * 0x1000, fb_base + i * 0x1000, 3);
+            pte.set_flag(FlagsOffset::WriteThroughCaching, true);
         }
     }
 

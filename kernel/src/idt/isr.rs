@@ -28,7 +28,7 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
         } else {
             PROCESS_LIST.lock().processes[current_process].context = ctx;
         }
-        PROCESS_LIST.lock().processes[current_process].invalidate_tlb();
+        // PROCESS_LIST.lock().processes[current_process].invalidate_tlb();
     }
 
     *MILLISECONDS_SINCE_STARTUP.lock() += 1;
@@ -56,9 +56,29 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
     end_of_interrupt(1);
 }
 
+static mut mx: i32 = 0;
+static mut my: i32 = 0;
 pub extern "x86-interrupt" fn mouse_handler(_stack_frame: InterruptStackFrame) {
     println!("mouse!");
-    loop {}
+    let buttons = inb(0x60);
+    let mut x = inb(0x60) as u32;
+    let mut y = inb(0x60) as u32;
+    if buttons & (0b11 << 6) == 0 {
+        if buttons & (1 << 4) == 1 {
+            x |= 0xffffff00;
+        }
+        if buttons & (1 << 5) == 1 {
+            y |= 0xffffff00;
+        }
+
+        let x = x as i32;
+        let y = y as i32;
+        unsafe {
+            mx += x;
+            my += y;
+        }
+    }
+    end_of_interrupt(12);
 }
 
 pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) {

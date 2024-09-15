@@ -96,10 +96,12 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     println!("FAT32 setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
     // Initialize mouse
-    /*mouse::init().expect("Failed to initialize mouse");
-    println!("Mouse setup\t\t\t\t\t[ \\gSUCCESS\\w ]");*/
+    mouse::init().expect("Failed to initialize mouse");
+    println!("Mouse setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    let user1 = FAT32
+    utils::halt();
+
+    /*let user1 = FAT32
         .lock()
         .as_ref()
         .unwrap()
@@ -107,7 +109,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());
-    PROCESS_LIST.lock().processes.push(user1);
+    PROCESS_LIST.lock().processes.push(user1);*/
 
     let user2 = FAT32
         .lock()

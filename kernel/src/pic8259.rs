@@ -11,7 +11,7 @@ const SLAVE_PIC_DATA: u16 = 0xa1;
 
 pub fn init() -> Result<(), ()> {
     // TODO add checks to see if the PIC is present
-    remap_pic(32, 32 + 7);
+    remap_pic(32, 32 + 8);
     enable_pic();
     Ok(())
 }
@@ -52,8 +52,8 @@ fn remap_pic(master_offset: u8, slave_offset: u8) {
 
 fn enable_pic() {
     // Set masks
-    outb(MASTER_PIC_DATA, 0);
-    outb(SLAVE_PIC_DATA, 0);
+    outb(MASTER_PIC_DATA, !0b111);
+    outb(SLAVE_PIC_DATA, !0b10000);
 
     unsafe {
         asm!("sti");

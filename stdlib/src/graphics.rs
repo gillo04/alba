@@ -14,8 +14,14 @@ pub struct Line {
 
 impl Line {
     pub fn draw(&self, sb: &mut ScreenBuffer) {
-        let dx = self.x2 - self.x1;
-        let dy = self.y2 - self.y1;
+        let mut dx = self.x2 - self.x1;
+        let mut dy = self.y2 - self.y1;
+        if dy == 0 {
+            dy = 1;
+        }
+        if dx == 0 {
+            dx = 1;
+        }
 
         /*let mut x1 = i64::min(self.x1, self.x2);
         let mut x2 = i64::max(self.x1, self.x2);
