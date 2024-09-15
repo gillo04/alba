@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use super::println;
+use super::{println, Mutex};
 use crate::utils::*;
 use core::arch::asm;
 
@@ -13,6 +13,8 @@ const MOUSE_BBIT: u8 = 0x01;
 const MOUSE_WRITE: u8 = 0xD4;
 const MOUSE_F_BIT: u16 = 0x20;
 const MOUSE_V_BIT: u16 = 0x08;
+
+pub static MOUSE_POS: Mutex<(u64, u64)> = Mutex::new((0, 0));
 
 pub fn init() -> Result<(), &'static str> {
     let mut status: u8 = 0;

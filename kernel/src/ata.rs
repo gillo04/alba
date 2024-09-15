@@ -267,9 +267,9 @@ impl AtaBus {
 
         self.set_command(0xec);
         self.delay_400ns();
-        let exists = self.get_status() != 0;
+        let mut status = self.get_status();
 
-        if exists {
+        if status != 0 {
             self.wait_bsy_clear();
 
             if self.get_lba_mid() != 0 && self.get_lba_high() != 0 {
@@ -277,8 +277,10 @@ impl AtaBus {
             }
 
             // Whait for DRQ or for ERR to set
-            while self.get_status() & 0b1001 == 0 {}
-            if self.get_status() & 1 == 0 {
+            while status & 0b1001 == 0 {
+                status = self.get_status();
+            }
+            if status & 1 == 0 {
                 let mut buffer = [0u16; 256];
                 for i in 0..256 {
                     buffer[i] = self.get_data();

@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-mod scancodes;
+pub mod scancodes;
 
 use super::{print, stdout, Mutex, String};
 use core::arch::asm;

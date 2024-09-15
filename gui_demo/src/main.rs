@@ -56,7 +56,6 @@ extern "C" fn main() {
         ..Default::default()
     };
 
-    println!("\n\n\n");
     let mut direction = 1;
     let mut width = 250;
     loop {

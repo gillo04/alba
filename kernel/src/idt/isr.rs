@@ -4,9 +4,11 @@ use super::InterruptStackFrame;
 use super::{super::print, println};
 use crate::fat32::*;
 use crate::memory::*;
+use crate::mouse::*;
 use crate::pic8259::*;
 use crate::pit::*;
 use crate::process::*;
+use crate::stdin::scancodes::*;
 use crate::stdin::*;
 use crate::stdout::*;
 use crate::utils::*;
@@ -20,26 +22,21 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     ctx.rflags = stack_frame.r_flags;
 
     let mut current_process = 0;
-    let active = PROCESS_LIST.lock().multitasking_active;
-    if active {
-        current_process = PROCESS_LIST.lock().current_process;
-        if PROCESS_LIST.lock().jump_to_multitasking {
-            PROCESS_LIST.lock().jump_to_multitasking = false;
-        } else {
-            PROCESS_LIST.lock().processes[current_process].context = ctx;
-        }
-        // PROCESS_LIST.lock().processes[current_process].invalidate_tlb();
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    if PROCESS_LIST.lock().jump_to_multitasking {
+        PROCESS_LIST.lock().jump_to_multitasking = false;
+    } else {
+        PROCESS_LIST.lock().processes[current_process].context = ctx;
     }
+    // PROCESS_LIST.lock().processes[current_process].invalidate_tlb();
 
     *MILLISECONDS_SINCE_STARTUP.lock() += 1;
     end_of_interrupt(0);
 
     // Switch task
-    if active {
-        current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
-        PROCESS_LIST.lock().current_process = current_process;
-        PROCESS_LIST.lock().processes[current_process].reenter();
-    }
+    current_process = (current_process + 1) % PROCESS_LIST.lock().processes.len();
+    PROCESS_LIST.lock().current_process = current_process;
+    PROCESS_LIST.lock().processes[current_process].reenter();
 }
 
 pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame) {
@@ -56,26 +53,28 @@ pub extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame
     end_of_interrupt(1);
 }
 
-static mut mx: i32 = 0;
-static mut my: i32 = 0;
 pub extern "x86-interrupt" fn mouse_handler(_stack_frame: InterruptStackFrame) {
-    println!("mouse!");
-    let buttons = inb(0x60);
-    let mut x = inb(0x60) as u32;
-    let mut y = inb(0x60) as u32;
-    if buttons & (0b11 << 6) == 0 {
-        if buttons & (1 << 4) == 1 {
-            x |= 0xffffff00;
-        }
-        if buttons & (1 << 5) == 1 {
-            y |= 0xffffff00;
-        }
+    while inb(0x64) & 1 != 0 {
+        let buttons = inb(0x60);
+        let mut x = inb(0x60) as u32;
+        let mut y = inb(0x60) as u32;
+        if buttons & (0b11 << 6) == 0 {
+            if buttons & (1 << 4) != 0 {
+                x |= 0xffffff00;
+            }
+            if buttons & (1 << 5) != 0 {
+                y |= 0xffffff00;
+            }
 
-        let x = x as i32;
-        let y = y as i32;
-        unsafe {
-            mx += x;
-            my += y;
+            let x = x as i32;
+            let mut y = y as i32;
+            y = -y;
+
+            let fb = &STDOUT.lock().frame_buffer;
+            let mx = i64::clamp(MOUSE_POS.lock().0 as i64 + x as i64, 0, fb.width as i64) as u64;
+            let my = i64::clamp(MOUSE_POS.lock().1 as i64 + y as i64, 0, fb.height as i64) as u64;
+            MOUSE_POS.lock().0 = mx;
+            MOUSE_POS.lock().1 = my;
         }
     }
     end_of_interrupt(12);
@@ -210,6 +209,105 @@ pub extern "x86-interrupt" fn alloc_pages(stack_frame: InterruptStackFrame) {
         .push(mapping);
 
     PROCESS_LIST.lock().processes[current_process].context.rcx = vaddr;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn get_mouse_pos(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    PROCESS_LIST.lock().processes[current_process].context.rax = MOUSE_POS.lock().0;
+    PROCESS_LIST.lock().processes[current_process].context.rcx = MOUSE_POS.lock().1;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn get_key(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    PROCESS_LIST.lock().processes[current_process].context.rax =
+        STDIN.lock().keyboard_int.is_some() as u64;
+
+    let int = STDIN.lock().keyboard_int;
+    let mut c = '\0';
+    let mut sc = 0;
+    if let Some(scancode) = int {
+        sc = scancode;
+        // Caps lock
+        if scancode == 0x3a {
+            let cl = STDIN.lock().is_caps_lock_active;
+            STDIN.lock().is_caps_lock_active = !cl;
+        }
+
+        if SCAN_CODE_SET1[scancode as usize] != '\0' {
+            let mut char = SCAN_CODE_SET1[scancode as usize];
+
+            let cl = STDIN.lock().is_caps_lock_active;
+            let mut s = STDIN.lock().pressed_scancodes[0x2a];
+            s |= STDIN.lock().pressed_scancodes[0x36];
+            if !(cl ^ s) {
+                if char >= 'A' && char <= 'Z' {
+                    char = char.to_ascii_lowercase();
+                }
+            }
+
+            if s {
+                char = SHIFT_SET1[scancode as usize] as char;
+            }
+            c = char;
+        }
+    }
+
+    PROCESS_LIST.lock().processes[current_process].context.rcx = c as u64;
+    PROCESS_LIST.lock().processes[current_process].context.rdx = sc as u64;
+    STDIN.lock().keyboard_int = None;
+    // END OF INTERRUPT CODE
+
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}
+
+pub extern "x86-interrupt" fn exec(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    let ptr = ctx.rax as *const u8;
+    let len = ctx.rcx as usize;
+    let string = unsafe { core::str::from_raw_parts(ptr, len) };
+    let fat = FAT32.lock();
+    let file = fat.as_ref().unwrap().read_file(string);
+    match file {
+        Ok(f) => {
+            PROCESS_LIST.lock().processes[current_process].context.rdx = 1;
+            let proc = crate::elf::ElfExecutable::new(f);
+            let proc = Process::new(proc.load_all(), proc.get_entry());
+            PROCESS_LIST.lock().processes.push(proc);
+        }
+        Err(e) => {
+            PROCESS_LIST.lock().processes[current_process].context.rdx = 0;
+        }
+    }
     // END OF INTERRUPT CODE
 
     PROCESS_LIST.lock().processes[current_process].reenter();

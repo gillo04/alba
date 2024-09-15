@@ -99,8 +99,6 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     mouse::init().expect("Failed to initialize mouse");
     println!("Mouse setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    utils::halt();
-
     /*let user1 = FAT32
         .lock()
         .as_ref()
@@ -131,9 +129,20 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     let gui_demo = Process::new(gui_demo.load_all(), gui_demo.get_entry());
     PROCESS_LIST.lock().processes.push(gui_demo);
 
+    let desktop = FAT32
+        .lock()
+        .as_ref()
+        .unwrap()
+        .read_file("USER/DESKTOP")
+        .unwrap();
+    let desktop = ElfExecutable::new(desktop);
+    let desktop = Process::new(desktop.load_all(), desktop.get_entry());
+    PROCESS_LIST.lock().processes.push(desktop);
+
     println!("Elf files loaded");
-    PROCESS_LIST.lock().multitasking_active = true;
     PROCESS_LIST.lock().jump_to_multitasking = true;
+
+    pic8259::enable_irq(0);
 
     utils::halt();
 }

@@ -11,8 +11,11 @@ cd user2
 cargo build --release
 cd ..
 
-
 cd gui_demo 
+cargo build --release
+cd ..
+
+cd desktop 
 cargo build --release
 cd ..
 
@@ -31,8 +34,14 @@ mcopy -i alba.img user2/target/x86_64-unknown-none/release/user2\
   ::/USER/USER2
 mcopy -i alba.img gui_demo/target/x86_64-unknown-none/release/gui_demo\
   ::/USER/GUI_DEMO
+mcopy -i alba.img desktop/target/x86_64-unknown-none/release/desktop\
+  ::/USER/DESKTOP
 mcopy -i alba.img logo/alba_logo.ppm\
   ::/USER/LOGO.PPM
+mcopy -i alba.img assets/pointer.ppm\
+  ::/USER/POINTER.PPM
+mcopy -i alba.img assets/zap-light16.psf\
+  ::/USER/FONT.PSF
 
 # Run
-qemu-system-x86_64 -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name Alba -machine pc -net none
+qemu-system-x86_64 -d int -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name Alba -machine pc -net none

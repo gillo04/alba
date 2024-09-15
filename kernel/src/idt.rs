@@ -80,6 +80,15 @@ pub fn init() -> Result<(), ()> {
 
         idt.0[69].set_interrupt_handler(alloc_pages);
         idt.0[69].set_dpl(PrivilegeLevel::Ring3);
+
+        idt.0[70].set_interrupt_handler(get_mouse_pos);
+        idt.0[70].set_dpl(PrivilegeLevel::Ring3);
+
+        idt.0[71].set_interrupt_handler(get_key);
+        idt.0[71].set_dpl(PrivilegeLevel::Ring3);
+
+        idt.0[72].set_interrupt_handler(exec);
+        idt.0[72].set_dpl(PrivilegeLevel::Ring3);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

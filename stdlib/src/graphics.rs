@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 pub mod gui;
+pub mod text;
 
 use super::*;
 
@@ -154,7 +155,9 @@ impl Image {
             for j in left..right {
                 let x = (start_x + j - left) as u64 * self.width as u64 / width;
                 let color = self.get_pixel(x, y);
-                sb.base[(i as u64 * sb.w + j as u64) as usize] = color;
+                if color != 0xff00ff {
+                    sb.base[(i as u64 * sb.w + j as u64) as usize] = color;
+                }
             }
         }
     }

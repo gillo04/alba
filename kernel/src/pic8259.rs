@@ -52,11 +52,21 @@ fn remap_pic(master_offset: u8, slave_offset: u8) {
 
 fn enable_pic() {
     // Set masks
-    outb(MASTER_PIC_DATA, !0b111);
+    outb(MASTER_PIC_DATA, !0b110);
     outb(SLAVE_PIC_DATA, !0b10000);
 
     unsafe {
         asm!("sti");
+    }
+}
+
+pub fn enable_irq(irq: u8) {
+    if irq >= 8 {
+        let m = inb(SLAVE_PIC_DATA);
+        outb(SLAVE_PIC_DATA, m & !(1 << irq));
+    } else {
+        let m = inb(MASTER_PIC_DATA);
+        outb(MASTER_PIC_DATA, m & !(1 << irq));
     }
 }
 

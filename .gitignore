@@ -2,5 +2,6 @@ kernel/target/
 user1/target
 user2/target/
 gui_demo/target/
+desktop/target/
 stdlib/target/
 alba.img

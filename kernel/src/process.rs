@@ -16,7 +16,6 @@ const USER_STACK_PAGE_COUNT: u64 = 0x1000;
 pub struct ProcessList {
     pub processes: Vec<Process>,
     pub current_process: usize,
-    pub multitasking_active: bool,
     pub jump_to_multitasking: bool,
 }
 
@@ -25,7 +24,6 @@ impl ProcessList {
         ProcessList {
             processes: Vec::new(),
             current_process: 0,
-            multitasking_active: false,
             jump_to_multitasking: false,
         }
     }
