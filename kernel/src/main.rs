@@ -107,7 +107,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());
-    PROCESS_LIST.lock().processes.push(user1);*/
+    PROCESS_LIST.lock().processes.push(user1);
 
     let user2 = FAT32
         .lock()
@@ -127,7 +127,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .unwrap();
     let gui_demo = ElfExecutable::new(gui_demo);
     let gui_demo = Process::new(gui_demo.load_all(), gui_demo.get_entry());
-    PROCESS_LIST.lock().processes.push(gui_demo);
+    PROCESS_LIST.lock().processes.push(gui_demo);*/
 
     let desktop = FAT32
         .lock()

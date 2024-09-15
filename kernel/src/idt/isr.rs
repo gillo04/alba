@@ -21,7 +21,6 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
 
-    let mut current_process = 0;
     let mut current_process = PROCESS_LIST.lock().current_process;
     if PROCESS_LIST.lock().jump_to_multitasking {
         PROCESS_LIST.lock().jump_to_multitasking = false;
@@ -308,7 +307,9 @@ pub extern "x86-interrupt" fn exec(stack_frame: InterruptStackFrame) {
             PROCESS_LIST.lock().processes[current_process].context.rdx = 0;
         }
     }
+    unsafe {
+        FAT32.force_unlock();
+    }
     // END OF INTERRUPT CODE
-
     PROCESS_LIST.lock().processes[current_process].reenter();
 }

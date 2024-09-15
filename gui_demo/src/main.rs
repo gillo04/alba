@@ -13,11 +13,12 @@ use stdlib::*;
 #[no_mangle]
 extern "C" fn main() {
     stdlib::heap::init().unwrap();
-
-    let img = Image::new(File::load("USER/LOGO    PPM").unwrap()).unwrap();
+    let f = File::load("USER/LOGO    PPM").unwrap();
+    let img = Image::new(f).unwrap();
 
     let mut buffer = vec![0x0u32; 500 * 500];
     let mut sbuffer = ScreenBuffer::new(0, 500, 500, 500, &mut buffer[..]);
+
     // Build GUI tree
     let image = GuiRect {
         width: Dimension::Percentage(1.0),
