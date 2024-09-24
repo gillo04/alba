@@ -275,6 +275,20 @@ impl ScreenBuffer<'_> {
     pub fn clear(&mut self, color: u32) {
         self.base.fill(color);
     }
+
+    pub fn copy_from_screen_buffer(&mut self, sb: &ScreenBuffer) {
+        if sb.w != self.w || sb.h != self.h {
+            panic!("Could not copy frame buffer");
+        }
+
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                sb.base as *const [u32] as *const u32,
+                self.base as *mut [u32] as *mut u32,
+                (self.w * self.h) as usize,
+            );
+        }
+    }
 }
 
 pub struct Screen {

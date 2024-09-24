@@ -20,17 +20,20 @@ extern "C" fn main() {
     let screen_size = get_screen();
 
     let font = Font::new(File::load("USER/FONT    PSF").unwrap()).unwrap();
+    let shared_page = get_shared_page();
 
     let mut buffer = vec![0x0u32; (screen_size.width * screen_size.height) as usize];
     let mut sbuffer =
         ScreenBuffer::new(0, 0, screen_size.width, screen_size.height, &mut buffer[..]);
 
     let mut file_name = String::new();
+    let mut process_loaded = false;
     loop {
         let key_pressed = get_key();
         if let Some((char, scancode)) = key_pressed {
             if scancode == 0x1c {
                 exec(file_name.as_str()).unwrap();
+                process_loaded = true;
                 file_name.clear();
             } else if scancode == 0x0e && file_name.len() > 0 {
                 file_name.pop();
@@ -41,6 +44,23 @@ extern "C" fn main() {
         let mouse_pos = get_mouse_position();
         sbuffer.clear(0x72A0C1);
 
+        // Draw window
+        if process_loaded {
+            let window_width = unsafe { *(shared_page as *const u64) };
+            let window_height = unsafe { *(shared_page as *const u64).offset(1) };
+            let window_base = unsafe { (shared_page as *const u64).offset(2) } as *const u32;
+
+            for i in 0..window_height {
+                for j in 0..window_width {
+                    unsafe {
+                        sbuffer.base[(i * sbuffer.w + j) as usize] =
+                            *window_base.offset((i * window_width + j) as isize);
+                    }
+                }
+            }
+        }
+
+        // Draw screen
         font.draw_string(
             format!("What executable do you want to load?: {}", file_name),
             100,

@@ -9,6 +9,7 @@ use alloc::vec::*;
 use core::arch::asm;
 
 pub static PROCESS_LIST: Mutex<ProcessList> = Mutex::new(ProcessList::new());
+pub static SHARED_PAGE: Mutex<u64> = Mutex::new(0);
 
 const USER_STACK_BASE: u64 = 0x1000_0000;
 const USER_STACK_PAGE_COUNT: u64 = 0x1000;
@@ -41,6 +42,7 @@ impl Process {
             context: Context::new(USER_STACK_BASE + USER_STACK_PAGE_COUNT * 0x1000),
         };
 
+        // Allocate stack
         let mut stack = VirtualMapping::new(USER_STACK_BASE, Vec::new());
         for i in 0..USER_STACK_PAGE_COUNT {
             stack

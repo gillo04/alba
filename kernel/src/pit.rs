@@ -13,7 +13,7 @@ const COMMAND: u16 = 0x43;
 const PIT_FREQUENCY: u32 = 1193182;
 
 pub fn init() -> Result<(), ()> {
-    let divisor = 2u16.pow(11);
+    let divisor = 2u16.pow(10);
     outb(COMMAND, 0x36);
     outb(CHANNEL0_DATA, divisor as u8);
     outb(CHANNEL0_DATA, (divisor >> 8) as u8);

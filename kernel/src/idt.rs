@@ -89,6 +89,9 @@ pub fn init() -> Result<(), ()> {
 
         idt.0[72].set_interrupt_handler(exec);
         idt.0[72].set_dpl(PrivilegeLevel::Ring3);
+
+        idt.0[73].set_interrupt_handler(get_shared_page);
+        idt.0[73].set_dpl(PrivilegeLevel::Ring3);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

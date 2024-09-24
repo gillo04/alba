@@ -313,3 +313,18 @@ pub extern "x86-interrupt" fn exec(stack_frame: InterruptStackFrame) {
     // END OF INTERRUPT CODE
     PROCESS_LIST.lock().processes[current_process].reenter();
 }
+
+pub extern "x86-interrupt" fn get_shared_page(stack_frame: InterruptStackFrame) {
+    let mut ctx = Context::capture_regs();
+    ctx.rsp = stack_frame.stack_ptr;
+    ctx.rip = stack_frame.instruction_ptr;
+    ctx.rflags = stack_frame.r_flags;
+
+    let mut current_process = PROCESS_LIST.lock().current_process;
+    PROCESS_LIST.lock().processes[current_process].context = ctx;
+
+    // INTERRUPT CODE
+    PROCESS_LIST.lock().processes[current_process].context.rax = *SHARED_PAGE.lock();
+    // END OF INTERRUPT CODE
+    PROCESS_LIST.lock().processes[current_process].reenter();
+}

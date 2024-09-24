@@ -24,6 +24,7 @@ mod stdout;
 mod uefi;
 mod utils;
 
+use crate::memory::*;
 use core::arch::asm;
 use core::ffi::c_void;
 use elf::ElfExecutable;
@@ -107,9 +108,19 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .unwrap();
     let user1 = ElfExecutable::new(user1);
     let user1 = Process::new(user1.load_all(), user1.get_entry());
-    PROCESS_LIST.lock().processes.push(user1);
+    PROCESS_LIST.lock().processes.push(user1);*/
 
-    let user2 = FAT32
+    let desktop = FAT32
+        .lock()
+        .as_ref()
+        .unwrap()
+        .read_file("USER/DESKTOP")
+        .unwrap();
+    let desktop = ElfExecutable::new(desktop);
+    let desktop = Process::new(desktop.load_all(), desktop.get_entry());
+    PROCESS_LIST.lock().processes.push(desktop);
+
+    /*let user2 = FAT32
         .lock()
         .as_ref()
         .unwrap()
@@ -129,17 +140,14 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     let gui_demo = Process::new(gui_demo.load_all(), gui_demo.get_entry());
     PROCESS_LIST.lock().processes.push(gui_demo);*/
 
-    let desktop = FAT32
-        .lock()
-        .as_ref()
-        .unwrap()
-        .read_file("USER/DESKTOP")
-        .unwrap();
-    let desktop = ElfExecutable::new(desktop);
-    let desktop = Process::new(desktop.load_all(), desktop.get_entry());
-    PROCESS_LIST.lock().processes.push(desktop);
-
     println!("Elf files loaded");
+
+    let shared_page = KERNEL_VALLOCATOR.lock().alloc_pages(300);
+    MEMORY_MANAGER
+        .lock()
+        .get_plm4()
+        .map_mapping_user(&shared_page);
+    *SHARED_PAGE.lock() = shared_page.vaddr;
     PROCESS_LIST.lock().jump_to_multitasking = true;
 
     pic8259::enable_irq(0);

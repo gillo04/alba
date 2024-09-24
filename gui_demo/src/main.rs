@@ -17,7 +17,20 @@ extern "C" fn main() {
     let img = Image::new(f).unwrap();
 
     let mut buffer = vec![0x0u32; 500 * 500];
-    let mut sbuffer = ScreenBuffer::new(0, 500, 500, 500, &mut buffer[..]);
+    // Setup buffer
+    unsafe {
+        let shared_page = get_shared_page();
+        *(shared_page as *mut u64) = 500;
+        *(shared_page as *mut u64).offset(1) = 500;
+    }
+
+    let mut desktop_buffer = unsafe {
+        let shared_page = get_shared_page();
+        let slice = core::slice::from_raw_parts_mut((shared_page + 8 * 2) as *mut u32, 500 * 500);
+        ScreenBuffer::new(0, 0, 500, 500, &mut slice[..])
+    };
+
+    let mut sbuffer = ScreenBuffer::new(0, 0, 500, 500, &mut buffer[..]);
 
     // Build GUI tree
     let image = GuiRect {
@@ -57,7 +70,7 @@ extern "C" fn main() {
         ..Default::default()
     };
 
-    let mut direction = 1;
+    let mut direction: i64 = 1;
     let mut width = 250;
     loop {
         width += direction;
@@ -67,6 +80,6 @@ extern "C" fn main() {
         gui_root.width = Dimension::Absolute(width as u64);
 
         draw_gui_tree(&gui_root, &mut sbuffer);
-        sbuffer.put();
+        desktop_buffer.copy_from_screen_buffer(&sbuffer);
     }
 }

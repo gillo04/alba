@@ -114,3 +114,14 @@ pub fn exec(path: &str) -> Result<(), ()> {
         Ok(())
     }
 }
+
+pub fn get_shared_page() -> u64 {
+    let mut ptr: u64 = 0;
+    unsafe {
+        asm!(
+            "int 0x49",
+            out("rax") ptr,
+        );
+    }
+    ptr
+}
