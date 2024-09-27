@@ -142,7 +142,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
 
     println!("Elf files loaded");
 
-    let shared_page = KERNEL_VALLOCATOR.lock().alloc_pages(300);
+    let shared_page = KERNEL_VALLOCATOR.lock().alloc_pages(1000);
     MEMORY_MANAGER
         .lock()
         .get_plm4()

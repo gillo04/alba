@@ -44,4 +44,4 @@ mcopy -i alba.img assets/zap-light16.psf\
   ::/USER/FONT.PSF
 
 # Run
-qemu-system-x86_64 -d int -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name Alba -machine pc -net none
+qemu-system-x86_64 -drive format=raw,unit=0,file=alba.img -bios /usr/share/ovmf/OVMF.fd -m 256M -vga std -name Alba -machine pc -net none

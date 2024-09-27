@@ -3,6 +3,7 @@
 
 use stdlib::alloc::vec::*;
 use stdlib::alloc::*;
+use stdlib::desktop::*;
 use stdlib::fs::*;
 use stdlib::graphics::gui::draw_gui_tree;
 use stdlib::graphics::gui::*;
@@ -13,24 +14,24 @@ use stdlib::*;
 #[no_mangle]
 extern "C" fn main() {
     stdlib::heap::init().unwrap();
+
+    // Initialize desktop window
+    let window = WindowHeader {
+        width: 500,
+        height: 500,
+        x: 100,
+        y: 200,
+        data: (),
+    };
+    let (window, mut window_buffer) = stdlib::desktop::client_init(&window);
+
+    // Initialize buffer
+    let mut buffer = vec![0x0u32; 500 * 500];
+    let mut sbuffer = ScreenBuffer::new(0, 0, 500, 500, &mut buffer[..]);
+
+    // Load image
     let f = File::load("USER/LOGO    PPM").unwrap();
     let img = Image::new(f).unwrap();
-
-    let mut buffer = vec![0x0u32; 500 * 500];
-    // Setup buffer
-    unsafe {
-        let shared_page = get_shared_page();
-        *(shared_page as *mut u64) = 500;
-        *(shared_page as *mut u64).offset(1) = 500;
-    }
-
-    let mut desktop_buffer = unsafe {
-        let shared_page = get_shared_page();
-        let slice = core::slice::from_raw_parts_mut((shared_page + 8 * 2) as *mut u32, 500 * 500);
-        ScreenBuffer::new(0, 0, 500, 500, &mut slice[..])
-    };
-
-    let mut sbuffer = ScreenBuffer::new(0, 0, 500, 500, &mut buffer[..]);
 
     // Build GUI tree
     let image = GuiRect {
@@ -80,6 +81,6 @@ extern "C" fn main() {
         gui_root.width = Dimension::Absolute(width as u64);
 
         draw_gui_tree(&gui_root, &mut sbuffer);
-        desktop_buffer.copy_from_screen_buffer(&sbuffer);
+        window_buffer.copy_from_screen_buffer(&sbuffer);
     }
 }

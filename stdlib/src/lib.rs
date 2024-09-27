@@ -3,6 +3,7 @@
 #![feature(str_from_raw_parts)]
 #![feature(const_mut_refs)]
 
+pub mod desktop;
 pub mod fs;
 pub mod graphics;
 pub mod heap;
