@@ -1,12 +1,14 @@
 #![no_std]
 #![no_main]
 
+use stdlib::alloc::string::*;
 use stdlib::alloc::vec::*;
 use stdlib::alloc::*;
 use stdlib::desktop::*;
 use stdlib::fs::*;
 use stdlib::graphics::gui::draw_gui_tree;
 use stdlib::graphics::gui::*;
+use stdlib::graphics::text::*;
 use stdlib::graphics::*;
 use stdlib::*;
 
@@ -29,9 +31,10 @@ extern "C" fn main() {
     let mut buffer = vec![0x0u32; 500 * 500];
     let mut sbuffer = ScreenBuffer::new(0, 0, 500, 500, &mut buffer[..]);
 
-    // Load image
+    // Load assets
     let f = File::load("USER/LOGO    PPM").unwrap();
     let img = Image::new(f).unwrap();
+    let font = Font::new(File::load("USER/FONT    PSF").unwrap()).unwrap();
 
     // Build GUI tree
     let image = GuiRect {
@@ -43,9 +46,10 @@ extern "C" fn main() {
     };
     let slab = GuiRect {
         width: Dimension::Percentage(1.0),
-        height: Dimension::Absolute(15),
+        height: Dimension::Absolute(60),
         margin_y: 5,
         fill: Fill::Solid(0xff7777),
+        text: Some((String::from("Lorem ipsum\ndolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat."), &font)),
         ..Default::default()
     };
     let card = GuiRect {
@@ -56,7 +60,7 @@ extern "C" fn main() {
         margin_y: 5,
         padding_x: 10,
         padding_y: 5,
-        children: vec![image.clone(), slab.clone(), slab.clone()],
+        children: vec![image.clone(), slab.clone()],
         ..Default::default()
     };
 
@@ -67,7 +71,7 @@ extern "C" fn main() {
         padding_y: 5,
         layout: Layout::Horizontal,
         fill: Fill::Solid(0xffffff),
-        children: vec![card.clone(), card.clone()],
+        children: vec![card.clone() /*card.clone()*/],
         ..Default::default()
     };
 

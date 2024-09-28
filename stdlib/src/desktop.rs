@@ -54,6 +54,13 @@ impl SharedMemoryHeader {
                 + size_of::<SharedMemoryHeader>() as u64,
         }
     }
+
+    pub fn advance_free_space(&mut self) {
+        self.ack = 0;
+        let window = unsafe { &*(self.free_space_offset as *const WindowHeader) };
+        let offset = size_of::<WindowHeader>() as u64 + window.width * window.height * 4;
+        self.free_space_offset += offset;
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -32,12 +32,20 @@ impl Font {
         color: u32,
         sb: &mut ScreenBuffer,
     ) {
+        if x < 0 || x >= sb.w as i64 || y < 0 || y >= sb.h as i64 {
+            return;
+        }
+
         let off = self.file.ptr + 4 + char as u64 * self.byte_size as u64;
         for i in 0..(self.byte_size as u64 * scale) {
             let b = unsafe { *(off as *const u8).offset(i as isize / scale as isize) };
             for j in 0..8 * scale {
                 if (b >> (8 - (j / scale) - 1)) & 1 == 1 {
-                    sb.base[((y + i as i64) * sb.w as i64 + x + j as i64) as usize] = color;
+                    let index = ((y + i as i64) * sb.w as i64 + x + j as i64) as usize;
+                    if index >= sb.base.len() {
+                        return;
+                    }
+                    sb.base[index] = color;
                 }
             }
         }
@@ -45,7 +53,7 @@ impl Font {
 
     pub fn draw_string(
         &self,
-        s: String,
+        s: &String,
         x: i64,
         y: i64,
         scale: u64,
@@ -63,5 +71,9 @@ impl Font {
                 x1 += 8 * scale as i64;
             }
         }
+    }
+
+    pub fn get_char_bounds(&self) -> (u64, u64) {
+        (8, self.byte_size as u64)
     }
 }

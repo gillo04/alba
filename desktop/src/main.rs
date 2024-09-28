@@ -35,7 +35,11 @@ extern "C" fn main() {
 
     // Create file icons on the desktop
     let file_icon = Image::new(File::load("USER/EXE_ICONPPM").unwrap()).unwrap();
-    let files = vec![("USER/GUI_DEMO", &file_icon), ("USER/USER2", &file_icon)];
+    let files = vec![
+        ("USER/GUI_DEMO", &file_icon),
+        ("USER/USER2", &file_icon),
+        // ("USER/USER1", &file_icon),
+    ];
 
     let mut tabs: Vec<Tab> = vec![];
     let mut drag_anchor: Option<(u64, u64)> = None;
@@ -47,10 +51,7 @@ extern "C" fn main() {
         // Check for acknowledgements and advance free pointer
         if smh.ack == 1 {
             // Advance free space ptr
-            smh.ack = 0;
-            let window = unsafe { &*(smh.free_space_offset as *const WindowHeader) };
-            let offset = size_of::<WindowHeader>() as u64 + window.width * window.height * 4;
-            smh.free_space_offset += offset;
+            smh.advance_free_space();
 
             // Create tab
             tabs.push(Tab { color: 0xcccccc });
@@ -153,7 +154,7 @@ extern "C" fn main() {
             file.1.draw(&mut sbuffer, i as i64 * 150, 0, 100, 100);
 
             font.draw_string(
-                String::from(file.0),
+                &String::from(file.0),
                 i as i64 * 150,
                 100,
                 1,

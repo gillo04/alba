@@ -28,6 +28,7 @@ pub struct GuiRect<'a> {
     pub fill: Fill<'a>,
     pub layout: Layout,
     pub children: Vec<GuiRect<'a>>,
+    pub text: Option<(String, &'a Font)>,
 }
 
 impl Default for GuiRect<'_> {
@@ -44,6 +45,7 @@ impl Default for GuiRect<'_> {
             fill: Fill::Solid(0),
             layout: Layout::Vertical,
             children: vec![],
+            text: None,
         }
     }
 }
@@ -84,6 +86,35 @@ impl GuiRect<'_> {
                     }
                 }
             }
+        }
+
+        // Draw text
+        if self.text.is_some() {
+            let text = self.text.as_ref().unwrap();
+            let char_bounds = text.1.get_char_bounds();
+
+            let mut lines = vec![];
+            let mut line_width = 0;
+            let mut previous_split = 0;
+            for (i, c) in text.0.chars().enumerate() {
+                if c == '\n' {
+                    line_width = 0;
+                } else {
+                    line_width += char_bounds.0;
+                    if line_width + char_bounds.0 >= resolved.width {
+                        lines.push(&text.0[previous_split..i]);
+                        previous_split = i;
+                        line_width = 0;
+                    }
+                }
+            }
+            if line_width > resolved.width {
+                lines.push(&text.0[previous_split..]);
+            }
+
+            let final_str = lines.join("\n");
+            text.1
+                .draw_string(&final_str, resolved.x, resolved.y, 1, 0, sb);
         }
 
         // Draw children

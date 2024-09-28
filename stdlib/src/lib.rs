@@ -11,8 +11,11 @@ pub mod heap;
 pub extern crate alloc;
 
 use fs::*;
+use graphics::gui::*;
+use graphics::text::*;
 use graphics::*;
 
+use alloc::string::*;
 use alloc::vec::*;
 use alloc::*;
 use core::arch::asm;
