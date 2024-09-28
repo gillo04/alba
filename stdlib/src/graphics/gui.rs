@@ -2,17 +2,19 @@
 
 use super::*;
 
-pub fn draw_gui_tree(root: &GuiRect, sb: &mut ScreenBuffer) {
+pub fn draw_gui_tree(root: &GuiRect, sb: &mut ScreenBuffer, io: &IoState) {
     let root_resolved = GuiRectResolved {
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
+        rect: Rect {
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        },
         padding_x: 0,
         padding_y: 0,
     };
 
-    root.draw(root_resolved, sb);
+    root.draw(&root_resolved, sb, io);
 }
 
 #[derive(Clone)]
@@ -21,11 +23,17 @@ pub struct GuiRect<'a> {
     pub y: Coordinate,
     pub width: Dimension,
     pub height: Dimension,
+
     pub padding_x: u64,
     pub padding_y: u64,
+
     pub margin_x: u64,
     pub margin_y: u64,
+
     pub fill: Fill<'a>,
+    pub fill_hover: Option<Fill<'a>>,
+    pub fill_active: Option<Fill<'a>>,
+
     pub layout: Layout,
     pub children: Vec<GuiRect<'a>>,
     pub text: Option<(String, &'a Font)>,
@@ -38,11 +46,17 @@ impl Default for GuiRect<'_> {
             y: Coordinate::Relative(0),
             width: Dimension::Absolute(0),
             height: Dimension::Absolute(0),
+
             padding_x: 0,
             padding_y: 0,
+
             margin_x: 0,
             margin_y: 0,
+
             fill: Fill::Solid(0),
+            fill_hover: None,
+            fill_active: None,
+
             layout: Layout::Vertical,
             children: vec![],
             text: None,
@@ -52,33 +66,69 @@ impl Default for GuiRect<'_> {
 
 #[derive(Clone, Copy)]
 struct GuiRectResolved {
-    pub x: i64,
-    pub y: i64,
-    pub width: u64,
-    pub height: u64,
+    pub rect: Rect,
     pub padding_x: u64,
     pub padding_y: u64,
 }
 
 impl GuiRect<'_> {
-    fn draw(&self, parent: GuiRectResolved, sb: &mut ScreenBuffer) -> GuiRectResolved {
+    fn draw(
+        &self,
+        parent: &GuiRectResolved,
+        sb: &mut ScreenBuffer,
+        io: &IoState,
+    ) -> GuiRectResolved {
         let mut resolved = self.resolve(parent);
 
         // Draw self
-        match self.fill {
+        let fill = {
+            if resolved
+                .rect
+                .point_intersection(io.mouse_pos.0 as i64, io.mouse_pos.1 as i64)
+            {
+                if io.left_button {
+                    if let Some(f) = self.fill_active {
+                        f
+                    } else {
+                        self.fill
+                    }
+                } else {
+                    if let Some(f) = self.fill_hover {
+                        f
+                    } else {
+                        self.fill
+                    }
+                }
+            } else {
+                self.fill
+            }
+        };
+
+        match fill {
             Fill::Image(img) => {
-                img.draw(sb, resolved.x, resolved.y, resolved.width, resolved.height);
+                img.draw(
+                    sb,
+                    resolved.rect.x,
+                    resolved.rect.y,
+                    resolved.rect.width,
+                    resolved.rect.height,
+                );
             }
             _ => {
                 // Bounds checking
-                let left = i64::clamp(resolved.x, 0, sb.w as i64) as u64;
-                let top = i64::clamp(resolved.y, 0, sb.h as i64) as u64;
-                let right = i64::clamp(resolved.x + resolved.width as i64, 0, sb.w as i64) as u64;
-                let bottom = i64::clamp(resolved.y + resolved.height as i64, 0, sb.h as i64) as u64;
+                let left = i64::clamp(resolved.rect.x, 0, sb.w as i64) as u64;
+                let top = i64::clamp(resolved.rect.y, 0, sb.h as i64) as u64;
+                let right =
+                    i64::clamp(resolved.rect.x + resolved.rect.width as i64, 0, sb.w as i64) as u64;
+                let bottom = i64::clamp(
+                    resolved.rect.y + resolved.rect.height as i64,
+                    0,
+                    sb.h as i64,
+                ) as u64;
 
                 for i in top..bottom {
                     for j in left..right {
-                        let color = match self.fill {
+                        let color = match fill {
                             Fill::Solid(color) => color,
                             _ => 0xff00ff,
                         };
@@ -101,39 +151,40 @@ impl GuiRect<'_> {
                     line_width = 0;
                 } else {
                     line_width += char_bounds.0;
-                    if line_width + char_bounds.0 >= resolved.width {
+                    if line_width + char_bounds.0 >= resolved.rect.width {
                         lines.push(&text.0[previous_split..i]);
                         previous_split = i;
                         line_width = 0;
                     }
                 }
             }
-            if line_width > resolved.width {
+            if line_width > resolved.rect.width {
                 lines.push(&text.0[previous_split..]);
             }
 
             let final_str = lines.join("\n");
             text.1
-                .draw_string(&final_str, resolved.x, resolved.y, 1, 0, sb);
+                .draw_string(&final_str, resolved.rect.x, resolved.rect.y, 1, 0, sb);
         }
 
         // Draw children
-        resolved.x += self.padding_x as i64;
-        resolved.y += self.padding_y as i64;
+        resolved.rect.x += self.padding_x as i64;
+        resolved.rect.y += self.padding_y as i64;
         for child in &self.children {
-            resolved.x += child.margin_x as i64;
-            resolved.y += child.margin_y as i64;
-            let child_resolved = child.draw(resolved, sb);
-            resolved.x -= child.margin_x as i64;
-            resolved.y -= child.margin_y as i64;
+            resolved.rect.x += child.margin_x as i64;
+            resolved.rect.y += child.margin_y as i64;
+            let child_resolved = child.draw(&resolved, sb, io);
+            resolved.rect.x -= child.margin_x as i64;
+            resolved.rect.y -= child.margin_y as i64;
 
             // Advance in layout
             match self.layout {
                 Layout::Horizontal => {
-                    resolved.x += child_resolved.width as i64 + child.margin_x as i64 * 2;
+                    resolved.rect.x += child_resolved.rect.width as i64 + child.margin_x as i64 * 2;
                 }
                 Layout::Vertical => {
-                    resolved.y += child_resolved.height as i64 + child.margin_y as i64 * 2;
+                    resolved.rect.y +=
+                        child_resolved.rect.height as i64 + child.margin_y as i64 * 2;
                 }
             }
         }
@@ -141,16 +192,18 @@ impl GuiRect<'_> {
         resolved
     }
 
-    fn resolve(&self, parent: GuiRectResolved) -> GuiRectResolved {
+    fn resolve(&self, parent: &GuiRectResolved) -> GuiRectResolved {
         let mut resolved = GuiRectResolved {
-            x: self.x.resolve(parent.x),
-            y: self.y.resolve(parent.y),
-            width: self
-                .width
-                .resolve(parent.width, parent.padding_x, self.margin_x),
-            height: self
-                .height
-                .resolve(parent.height, parent.padding_y, self.margin_y),
+            rect: Rect {
+                x: self.x.resolve(parent.rect.x),
+                y: self.y.resolve(parent.rect.y),
+                width: self
+                    .width
+                    .resolve(parent.rect.width, parent.padding_x, self.margin_x),
+                height: self
+                    .height
+                    .resolve(parent.rect.height, parent.padding_y, self.margin_y),
+            },
             padding_x: self.padding_x,
             padding_y: self.padding_y,
         };
@@ -172,16 +225,16 @@ impl GuiRect<'_> {
 
         if relative_height.is_some() && relative_width.is_some() {
             let img_dimensions = relative_width.unwrap();
-            resolved.width = img_dimensions.0 as u64;
-            resolved.height = img_dimensions.1 as u64;
+            resolved.rect.width = img_dimensions.0 as u64;
+            resolved.rect.height = img_dimensions.1 as u64;
         } else if relative_width.is_some() {
             let img_dimensions = relative_width.unwrap();
-            resolved.width =
-                (img_dimensions.0 as f32 / img_dimensions.1 as f32 * resolved.height as f32) as u64;
+            resolved.rect.width = (img_dimensions.0 as f32 / img_dimensions.1 as f32
+                * resolved.rect.height as f32) as u64;
         } else if relative_height.is_some() {
             let img_dimensions = relative_height.unwrap();
-            resolved.height =
-                (img_dimensions.1 as f32 / img_dimensions.0 as f32 * resolved.width as f32) as u64;
+            resolved.rect.height = (img_dimensions.1 as f32 / img_dimensions.0 as f32
+                * resolved.rect.width as f32) as u64;
         }
         resolved
     }
@@ -231,4 +284,11 @@ pub enum Fill<'a> {
 pub enum Layout {
     Horizontal,
     Vertical,
+}
+
+#[derive(Clone, Copy)]
+pub struct IoState {
+    pub mouse_pos: (u64, u64),
+    pub left_button: bool,
+    pub right_button: bool,
 }

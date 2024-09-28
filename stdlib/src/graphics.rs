@@ -5,6 +5,7 @@ pub mod text;
 
 use super::*;
 
+#[derive(Clone, Copy)]
 pub struct Rect {
     pub x: i64,
     pub y: i64,

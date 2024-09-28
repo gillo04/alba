@@ -49,6 +49,7 @@ extern "C" fn main() {
         height: Dimension::Absolute(60),
         margin_y: 5,
         fill: Fill::Solid(0xff7777),
+        fill_active: Some(Fill::Solid(0xff0000)),
         text: Some((String::from("Lorem ipsum\ndolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat."), &font)),
         ..Default::default()
     };
@@ -84,7 +85,13 @@ extern "C" fn main() {
         }
         gui_root.width = Dimension::Absolute(width as u64);
 
-        draw_gui_tree(&gui_root, &mut sbuffer);
+        let mouse = get_mouse_position();
+        let io = IoState {
+            mouse_pos: (mouse.0 - window.x, mouse.1 - window.y),
+            left_button: mouse.2,
+            right_button: mouse.3,
+        };
+        draw_gui_tree(&gui_root, &mut sbuffer, &io);
         window_buffer.copy_from_screen_buffer(&sbuffer);
     }
 }
