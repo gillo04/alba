@@ -5,6 +5,22 @@ pub mod text;
 
 use super::*;
 
+pub struct Rect {
+    pub x: i64,
+    pub y: i64,
+    pub width: u64,
+    pub height: u64,
+}
+
+impl Rect {
+    pub fn point_intersection(&self, px: i64, py: i64) -> bool {
+        px >= self.x
+            && px < self.x + self.width as i64
+            && py >= self.y
+            && py < self.y + self.height as i64
+    }
+}
+
 pub struct Line {
     pub x1: i64,
     pub y1: i64,
@@ -209,23 +225,20 @@ impl Circle {
 }
 
 pub struct Rectangle {
-    pub x: i64,
-    pub y: i64,
-    pub w: u64,
-    pub h: u64,
+    pub rect: Rect,
     pub color: u32,
 }
 
 impl Rectangle {
     pub fn draw(&self, sb: &mut ScreenBuffer) {
         // Bounds checking
-        if self.x >= sb.w as i64 || self.y >= sb.w as i64 {
+        if self.rect.x >= sb.w as i64 || self.rect.y >= sb.w as i64 {
             return;
         }
-        let x = i64::max(self.x, 0);
-        let y = i64::max(self.y, 0);
-        let mut right = i64::min(self.x + self.w as i64, sb.w as i64);
-        let mut bottom = i64::min(self.y + self.h as i64, sb.h as i64);
+        let x = i64::max(self.rect.x, 0);
+        let y = i64::max(self.rect.y, 0);
+        let mut right = i64::min(self.rect.x + self.rect.width as i64, sb.w as i64);
+        let mut bottom = i64::min(self.rect.y + self.rect.height as i64, sb.h as i64);
 
         for i in y..bottom {
             for j in x..right {

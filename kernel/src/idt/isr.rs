@@ -74,6 +74,8 @@ pub extern "x86-interrupt" fn mouse_handler(_stack_frame: InterruptStackFrame) {
             let my = i64::clamp(MOUSE_POS.lock().1 as i64 + y as i64, 0, fb.height as i64) as u64;
             MOUSE_POS.lock().0 = mx;
             MOUSE_POS.lock().1 = my;
+            MOUSE_POS.lock().2 = buttons & 1 != 0;
+            MOUSE_POS.lock().3 = buttons & (1 << 1) != 0;
         }
     }
     end_of_interrupt(12);
@@ -225,6 +227,8 @@ pub extern "x86-interrupt" fn get_mouse_pos(stack_frame: InterruptStackFrame) {
     // INTERRUPT CODE
     PROCESS_LIST.lock().processes[current_process].context.rax = MOUSE_POS.lock().0;
     PROCESS_LIST.lock().processes[current_process].context.rcx = MOUSE_POS.lock().1;
+    PROCESS_LIST.lock().processes[current_process].context.rdx = MOUSE_POS.lock().2 as u64;
+    PROCESS_LIST.lock().processes[current_process].context.r8 = MOUSE_POS.lock().3 as u64;
     // END OF INTERRUPT CODE
 
     PROCESS_LIST.lock().processes[current_process].reenter();

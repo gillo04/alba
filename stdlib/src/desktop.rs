@@ -47,6 +47,13 @@ impl SharedMemoryHeader {
                 + size_of::<SharedMemoryHeader>() as u64,
         }
     }
+
+    pub fn iter_mut(&self) -> WindowIteratorMut {
+        WindowIteratorMut {
+            next_window: (self as *const SharedMemoryHeader as u64)
+                + size_of::<SharedMemoryHeader>() as u64,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -71,8 +78,24 @@ impl core::iter::Iterator for WindowIterator {
             return None;
         }
 
-        let out = Some(header);
         self.next_window += size_of::<WindowHeader>() as u64 + header.width * header.height * 4;
-        out
+        Some(header)
+    }
+}
+
+pub struct WindowIteratorMut {
+    next_window: u64,
+}
+
+impl core::iter::Iterator for WindowIteratorMut {
+    type Item = &'static mut WindowHeader;
+    fn next(&mut self) -> Option<Self::Item> {
+        let header = unsafe { &mut *(self.next_window as *mut WindowHeader) };
+        if header.width == 0 && header.height == 0 {
+            return None;
+        }
+
+        self.next_window += size_of::<WindowHeader>() as u64 + header.width * header.height * 4;
+        Some(header)
     }
 }

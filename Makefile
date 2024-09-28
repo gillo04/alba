@@ -23,6 +23,7 @@ img: all
 	mcopy -i alba.img logo/alba_logo.ppm ::/USER/LOGO.PPM
 	mcopy -i alba.img assets/pointer.ppm ::/USER/POINTER.PPM
 	mcopy -i alba.img assets/zap-light16.psf ::/USER/FONT.PSF
+	mcopy -i alba.img assets/exe_icon.ppm ::/USER/EXE_ICON.PPM
 
 # Run in qemu
 run: img 

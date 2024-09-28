@@ -12,6 +12,12 @@ use stdlib::graphics::text::*;
 use stdlib::graphics::*;
 use stdlib::*;
 
+const TAB_HEIGHT: u64 = 40;
+
+struct Tab {
+    color: u32,
+}
+
 #[export_name = "_start"]
 #[no_mangle]
 extern "C" fn main() {
@@ -27,30 +33,27 @@ extern "C" fn main() {
     let mut sbuffer =
         ScreenBuffer::new(0, 0, screen_size.width, screen_size.height, &mut buffer[..]);
 
-    let mut file_name = String::new();
-    let mut ack_count = 0;
+    // Create file icons on the desktop
+    let file_icon = Image::new(File::load("USER/EXE_ICONPPM").unwrap()).unwrap();
+    let files = vec![("USER/GUI_DEMO", &file_icon), ("USER/USER2", &file_icon)];
+
+    let mut tabs: Vec<Tab> = vec![];
+    let mut drag_anchor: Option<(u64, u64)> = None;
+    let mut current_drag: usize = 0;
+    let mut is_left_pressed: bool = false;
     loop {
-        // Get keyboard input
-        let key_pressed = get_key();
-        if let Some((char, scancode)) = key_pressed {
-            if scancode == 0x1c {
-                exec(file_name.as_str());
-                file_name.clear();
-            } else if scancode == 0x0e && file_name.len() > 0 {
-                file_name.pop();
-            } else if char != 0 {
-                file_name.push(char as char);
-            }
-        }
         let mouse_pos = get_mouse_position();
 
         // Check for acknowledgements and advance free pointer
         if smh.ack == 1 {
+            // Advance free space ptr
             smh.ack = 0;
             let window = unsafe { &*(smh.free_space_offset as *const WindowHeader) };
             let offset = size_of::<WindowHeader>() as u64 + window.width * window.height * 4;
             smh.free_space_offset += offset;
-            ack_count += 1;
+
+            // Create tab
+            tabs.push(Tab { color: 0xcccccc });
         }
 
         // Draw
@@ -58,29 +61,106 @@ extern "C" fn main() {
 
         // Draw windows
         for (i, window) in smh.iter().enumerate() {
+            if i >= tabs.len() {
+                break;
+            }
+
+            // Bounds checking
+            let left = u64::clamp(window.x, 0, sbuffer.w);
+            let top = u64::clamp(window.y, 0, sbuffer.h);
+            let right = u64::clamp(window.x + window.width, 0, sbuffer.w);
+            let bottom = u64::clamp(window.y + window.height, 0, sbuffer.h);
+
             let window_base = &window.data as *const () as u64 as *const u32;
-            for i in 0..window.height {
-                for j in 0..window.width {
+            for i in top..bottom {
+                for j in left..right {
                     unsafe {
-                        sbuffer.base[((i + window.y) * sbuffer.w + j + window.x) as usize] =
-                            *window_base.offset((i * window.width + j) as isize);
+                        sbuffer.base[(i * sbuffer.w + j) as usize] = *window_base
+                            .offset(((i - window.y) * window.width + (j - window.x)) as isize);
                     }
                 }
             }
+
+            // Draw tab
+            let tab = Rectangle {
+                rect: Rect {
+                    x: window.x as i64,
+                    y: (window.y - TAB_HEIGHT) as i64,
+                    width: window.width,
+                    height: TAB_HEIGHT,
+                },
+                color: tabs[i].color,
+            };
+            tab.draw(&mut sbuffer);
         }
 
-        // Draw screen
-        font.draw_string(
-            format!(
-                "({}) What executable do you want to load?: {}",
-                ack_count, file_name
-            ),
-            100,
-            200,
-            2,
-            0x0,
-            &mut sbuffer,
-        );
+        // Check if mouse is in tab
+        if mouse_pos.2 {
+            let mx = mouse_pos.0;
+            let my = mouse_pos.1;
+            if !is_left_pressed {
+                for (i, window) in smh.iter().enumerate() {
+                    if i >= tabs.len() {
+                        break;
+                    }
+
+                    let tab = Rectangle {
+                        rect: Rect {
+                            x: window.x as i64,
+                            y: (window.y - TAB_HEIGHT) as i64,
+                            width: window.width,
+                            height: TAB_HEIGHT,
+                        },
+                        color: tabs[i].color,
+                    };
+                    if tab.rect.point_intersection(mx as i64, my as i64) {
+                        drag_anchor = Some((mx - tab.rect.x as u64, my - tab.rect.y as u64));
+                        current_drag = i;
+                    }
+                }
+            } else if drag_anchor.is_some() {
+                let fw = smh.iter_mut().nth(current_drag);
+                if let Some(window) = fw {
+                    let drag_anchor = drag_anchor.unwrap();
+                    window.x = mouse_pos.0 - drag_anchor.0;
+                    window.y = mouse_pos.1 - drag_anchor.1 + TAB_HEIGHT;
+                }
+            }
+
+            // Check exe click
+            if !is_left_pressed {
+                for (i, file) in files.iter().enumerate() {
+                    let r = Rect {
+                        x: i as i64 * 150,
+                        y: 0,
+                        width: 100,
+                        height: 100,
+                    };
+
+                    if r.point_intersection(mx as i64, my as i64) {
+                        exec(file.0);
+                    }
+                }
+            }
+            is_left_pressed = true;
+        } else {
+            drag_anchor = None;
+            is_left_pressed = false;
+        }
+
+        // Draw file icons
+        for (i, file) in files.iter().enumerate() {
+            file.1.draw(&mut sbuffer, i as i64 * 150, 0, 100, 100);
+
+            font.draw_string(
+                String::from(file.0),
+                i as i64 * 150,
+                100,
+                1,
+                0x0,
+                &mut sbuffer,
+            );
+        }
 
         pointer.draw(
             &mut sbuffer,

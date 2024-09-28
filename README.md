@@ -20,10 +20,12 @@ Alba OS is a 64 bit x86_64 multitasking operating system written in Rust.
 - [ ] USB mass storage device driver
 
 ## Building and running
-To build a disk image of the OS, run the `build.sh` script at the root of the project:
+To build a disk image of the OS, run at the root of the project the command:
 
-    sh build.sh
+    make img
 
-This will create a `alba.img` file at the root of the project and open quemu to run it.
+This will create a `alba.img` file at the root of the project. To open it in quemu, use:
+
+    make run
 
 If you want to test this on real hardware, you can flash the image on a USB stick and boot from it, but be ware: since the OS does not yet support a USB driver, when running it on real hardware from a USB stick it will panic when trying to initialize the ATA PIO driver (or in case an ATA bus exists, it will read garbage data off the disk).

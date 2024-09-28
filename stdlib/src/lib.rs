@@ -76,11 +76,15 @@ pub fn alloc_pages(page_count: u64) -> u64 {
     addr
 }
 
-pub fn get_mouse_position() -> (u64, u64) {
-    let mut out: (u64, u64) = (0, 0);
+pub fn get_mouse_position() -> (u64, u64, bool, bool) {
+    let mut out: (u64, u64, bool, bool) = (0, 0, false, false);
+    let mut l: u64;
+    let mut r: u64;
     unsafe {
-        asm!("int 0x46", out("rax") out.0, out("rcx") out.1);
+        asm!("int 0x46", out("rax") out.0, out("rcx") out.1, out("rdx") l, out("r8") r);
     }
+    out.2 = l != 0;
+    out.3 = r != 0;
     out
 }
 
