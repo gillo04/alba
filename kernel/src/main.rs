@@ -100,16 +100,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     mouse::init().expect("Failed to initialize mouse");
     println!("Mouse setup\t\t\t\t\t[ \\gSUCCESS\\w ]");
 
-    /*let user1 = FAT32
-        .lock()
-        .as_ref()
-        .unwrap()
-        .read_file("USER/USER1")
-        .unwrap();
-    let user1 = ElfExecutable::new(user1);
-    let user1 = Process::new(user1.load_all(), user1.get_entry());
-    PROCESS_LIST.lock().processes.push(user1);*/
-
+    // Start userspace program
     let desktop = FAT32
         .lock()
         .as_ref()
@@ -119,26 +110,6 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
     let desktop = ElfExecutable::new(desktop);
     let desktop = Process::new(desktop.load_all(), desktop.get_entry());
     PROCESS_LIST.lock().processes.push(desktop);
-
-    /*let user2 = FAT32
-        .lock()
-        .as_ref()
-        .unwrap()
-        .read_file("USER/USER2")
-        .unwrap();
-    let user2 = ElfExecutable::new(user2);
-    let user2 = Process::new(user2.load_all(), user2.get_entry());
-    PROCESS_LIST.lock().processes.push(user2);
-
-    let gui_demo = FAT32
-        .lock()
-        .as_ref()
-        .unwrap()
-        .read_file("USER/GUI_DEMO")
-        .unwrap();
-    let gui_demo = ElfExecutable::new(gui_demo);
-    let gui_demo = Process::new(gui_demo.load_all(), gui_demo.get_entry());
-    PROCESS_LIST.lock().processes.push(gui_demo);*/
 
     println!("Elf files loaded");
 

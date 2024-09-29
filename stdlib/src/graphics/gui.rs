@@ -37,7 +37,11 @@ pub struct GuiRect<'a> {
     pub layout: Layout,
     pub children: Vec<GuiRect<'a>>,
     pub text: Option<(String, &'a Font)>,
+
+    pub on_click: fn(),
 }
+
+fn nop() {}
 
 impl Default for GuiRect<'_> {
     fn default() -> Self {
@@ -60,6 +64,8 @@ impl Default for GuiRect<'_> {
             layout: Layout::Vertical,
             children: vec![],
             text: None,
+
+            on_click: || {},
         }
     }
 }
@@ -87,6 +93,7 @@ impl GuiRect<'_> {
                 .point_intersection(io.mouse_pos.0 as i64, io.mouse_pos.1 as i64)
             {
                 if io.left_button {
+                    (self.on_click)();
                     if let Some(f) = self.fill_active {
                         f
                     } else {

@@ -12,11 +12,12 @@ impl File {
         let mut file = File { ptr: 0, size: 0 };
         unsafe {
             asm!(
-                "int 0x43",
-                in("rax") path.as_ptr(),
-                in("rcx") path.len(),
-                out("rdx") file.ptr,
-                out("r8") file.size
+                "int 0x80",
+                in("rax") 0x30,
+                in("rcx") path.as_ptr(),
+                in("rdx") path.len(),
+                out("r8") file.ptr,
+                out("r9") file.size
             );
         }
 

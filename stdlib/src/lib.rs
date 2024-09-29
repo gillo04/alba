@@ -54,9 +54,10 @@ impl core::fmt::Write for StdOut {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         unsafe {
             asm!(
-                "int 0x40",
-                in("rax") s.as_ptr(),
-                in("rcx") s.len()
+                "int 0x80",
+                in("rax") 0x10,
+                in("rcx") s.as_ptr(),
+                in("rdx") s.len()
             );
         }
         Ok(())
@@ -66,7 +67,11 @@ impl core::fmt::Write for StdOut {
 pub fn get_milliseconds_since_startup() -> u64 {
     let mut ms: u64;
     unsafe {
-        asm!("int 0x44", out("rax") ms);
+        asm!(
+            "int 0x80",
+            in("rax") 0x50,
+            out("rcx") ms
+        );
     }
     ms
 }
@@ -74,21 +79,13 @@ pub fn get_milliseconds_since_startup() -> u64 {
 pub fn alloc_pages(page_count: u64) -> u64 {
     let mut addr: u64;
     unsafe {
-        asm!("int 0x45", in("rax") page_count, out("rcx") addr);
+        asm!("int 0x80",
+            in("rax") 0x40,
+            in("rcx") page_count,
+            out("rdx") addr
+        );
     }
     addr
-}
-
-pub fn get_mouse_position() -> (u64, u64, bool, bool) {
-    let mut out: (u64, u64, bool, bool) = (0, 0, false, false);
-    let mut l: u64;
-    let mut r: u64;
-    unsafe {
-        asm!("int 0x46", out("rax") out.0, out("rcx") out.1, out("rdx") l, out("r8") r);
-    }
-    out.2 = l != 0;
-    out.3 = r != 0;
-    out
 }
 
 pub fn get_key() -> Option<(u8, u8)> {
@@ -96,7 +93,13 @@ pub fn get_key() -> Option<(u8, u8)> {
     let mut c: u64 = 0;
     let mut sc: u64 = 0;
     unsafe {
-        asm!("int 0x47", out("rax") present, out("rcx") c, out("rdx") sc);
+        asm!(
+            "int 0x80",
+            in("rax") 0x20,
+            out("rcx") present,
+            out("rdx") c,
+            out("r8") sc
+        );
     }
 
     if present == 0 {
@@ -106,14 +109,33 @@ pub fn get_key() -> Option<(u8, u8)> {
     }
 }
 
+pub fn get_mouse() -> (u64, u64, bool, bool) {
+    let mut out: (u64, u64, bool, bool) = (0, 0, false, false);
+    let mut l: u64;
+    let mut r: u64;
+    unsafe {
+        asm!("int 0x80",
+            in("rax") 0x21,
+            out("rcx") out.0,
+            out("rdx") out.1,
+            out("r8") l,
+            out("r9") r
+        );
+    }
+    out.2 = l != 0;
+    out.3 = r != 0;
+    out
+}
+
 pub fn exec(path: &str) -> Result<(), ()> {
     let mut res: u64 = 0;
     unsafe {
         asm!(
-            "int 0x48",
-            in("rax") path.as_ptr(),
-            in("rcx") path.len(),
-            out("rdx") res,
+            "int 0x80",
+            in("rax") 0x60,
+            in("rcx") path.as_ptr(),
+            in("rdx") path.len(),
+            out("r8") res,
         );
     }
     if res == 0 {
@@ -127,8 +149,9 @@ pub fn get_shared_page() -> u64 {
     let mut ptr: u64 = 0;
     unsafe {
         asm!(
-            "int 0x49",
-            out("rax") ptr,
+            "int 0x80",
+            in("rax") 0x41,
+            out("rcx") ptr,
         );
     }
     ptr

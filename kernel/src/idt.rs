@@ -2,12 +2,14 @@
 
 mod exceptions;
 mod isr;
+mod syscalls;
 
 use super::{println, Mutex};
 use crate::gdt::{PrivilegeLevel, KERNEL_CODE_SEGMENT_SELECTOR};
 use core::arch::asm;
 use exceptions::*;
 use isr::*;
+use syscalls::*;
 
 static IDT: Mutex<Idt> = Mutex::new(Idt::new());
 
@@ -63,35 +65,8 @@ pub fn init() -> Result<(), ()> {
         idt.0[32 + 12].set_interrupt_handler(mouse_handler);
 
         // Syscalls
-        idt.0[64].set_interrupt_handler(print_interrupt);
-        idt.0[64].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[65].set_interrupt_handler(put_screen_buffer);
-        idt.0[65].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[66].set_interrupt_handler(get_screen_size);
-        idt.0[66].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[67].set_interrupt_handler(load_file);
-        idt.0[67].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[68].set_interrupt_handler(get_milliseconds_since_startup);
-        idt.0[68].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[69].set_interrupt_handler(alloc_pages);
-        idt.0[69].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[70].set_interrupt_handler(get_mouse_pos);
-        idt.0[70].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[71].set_interrupt_handler(get_key);
-        idt.0[71].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[72].set_interrupt_handler(exec);
-        idt.0[72].set_dpl(PrivilegeLevel::Ring3);
-
-        idt.0[73].set_interrupt_handler(get_shared_page);
-        idt.0[73].set_dpl(PrivilegeLevel::Ring3);
+        idt.0[0x80].set_interrupt_handler(syscall_handler);
+        idt.0[0x80].set_dpl(PrivilegeLevel::Ring3);
     }
     let descriptor = IdtDescriptor::new(&IDT.lock());
     descriptor.load();

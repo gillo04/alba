@@ -1,7 +1,8 @@
 use core::fmt::Write;
 
-use super::InterruptStackFrame;
-use super::{super::print, println};
+use super::super::print;
+use super::syscalls::*;
+use super::*;
 use crate::fat32::*;
 use crate::memory::*;
 use crate::mouse::*;
@@ -81,26 +82,21 @@ pub extern "x86-interrupt" fn mouse_handler(_stack_frame: InterruptStackFrame) {
     end_of_interrupt(12);
 }
 
-pub extern "x86-interrupt" fn print_interrupt(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-
-    // Print
-    let ptr = ctx.rax as *const u8;
-    let len = ctx.rcx as usize;
+pub fn print(ctx: Context) {
+    let ptr = ctx.rcx as *const u8;
+    let len = ctx.rdx as usize;
     unsafe {
         let string = core::str::from_raw_parts(ptr, len);
         STDOUT.lock().write_str(string);
     }
 }
 
-pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-
-    let buffer = ctx.rax as *const u32;
-    let mut x = ctx.rcx;
-    let mut y = ctx.rdx;
-    let mut w = ctx.r8;
-    let mut h = ctx.r9;
+pub fn put_screen_buffer(ctx: Context) {
+    let buffer = ctx.rcx as *const u32;
+    let mut x = ctx.rdx;
+    let mut y = ctx.r8;
+    let mut w = ctx.r9;
+    let mut h = ctx.r10;
     let frame_buffer = STDOUT.lock().frame_buffer;
 
     // Bounds checking
@@ -121,43 +117,19 @@ pub extern "x86-interrupt" fn put_screen_buffer(stack_frame: InterruptStackFrame
                 base.offset(((y + i) * frame_buffer.pixels_per_scanline + x) as isize),
                 w as usize,
             );
-            /*(frame_buffer.base as *mut u32)
-            .offset(((y + i) * frame_buffer.pixels_per_scanline + (x + j)) as isize) =
-            *(buffer as *mut u32).offset((i * w + j) as isize);*/
         }
     }
 }
 
-pub extern "x86-interrupt" fn get_screen_size(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].context.rax = STDOUT.lock().frame_buffer.width;
-    PROCESS_LIST.lock().processes[current_process].context.rcx = STDOUT.lock().frame_buffer.height;
-    // END OF INTERRUPT CODE
-
-    PROCESS_LIST.lock().processes[current_process].reenter();
+pub fn get_screen_size(current_process: usize, ctx: Context) {
+    PROCESS_LIST.lock().processes[current_process].context.rcx = STDOUT.lock().frame_buffer.width;
+    PROCESS_LIST.lock().processes[current_process].context.rdx = STDOUT.lock().frame_buffer.height;
 }
 
-pub extern "x86-interrupt" fn load_file(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
+pub fn load_file(current_process: usize, ctx: Context) {
     let path = {
-        let ptr = PROCESS_LIST.lock().processes[current_process].context.rax;
-        let len = PROCESS_LIST.lock().processes[current_process].context.rcx;
+        let ptr = PROCESS_LIST.lock().processes[current_process].context.rcx;
+        let len = PROCESS_LIST.lock().processes[current_process].context.rdx;
         unsafe { core::str::from_raw_parts(ptr as *const u8, len as usize) }
     };
 
@@ -171,37 +143,12 @@ pub extern "x86-interrupt" fn load_file(stack_frame: InterruptStackFrame) {
             .push(file.mapping);
     }
 
-    PROCESS_LIST.lock().processes[current_process].context.rdx = ptr;
-    PROCESS_LIST.lock().processes[current_process].context.r8 = size;
-    // END OF INTERRUPT CODE
-
-    PROCESS_LIST.lock().processes[current_process].reenter();
+    PROCESS_LIST.lock().processes[current_process].context.r8 = ptr;
+    PROCESS_LIST.lock().processes[current_process].context.r9 = size;
 }
 
-pub extern "x86-interrupt" fn get_milliseconds_since_startup(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    PROCESS_LIST.lock().processes[current_process].context.rax = *MILLISECONDS_SINCE_STARTUP.lock();
-    PROCESS_LIST.lock().processes[current_process].reenter();
-}
-
-pub extern "x86-interrupt" fn alloc_pages(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    let page_count = PROCESS_LIST.lock().processes[current_process].context.rax;
+pub fn alloc_pages(current_process: usize, ctx: Context) {
+    let page_count = PROCESS_LIST.lock().processes[current_process].context.rcx;
 
     let mapping = KERNEL_VALLOCATOR.lock().alloc_pages(page_count);
     let vaddr = mapping.vaddr;
@@ -209,42 +156,18 @@ pub extern "x86-interrupt" fn alloc_pages(stack_frame: InterruptStackFrame) {
         .mappings
         .push(mapping);
 
-    PROCESS_LIST.lock().processes[current_process].context.rcx = vaddr;
-    // END OF INTERRUPT CODE
-
-    PROCESS_LIST.lock().processes[current_process].reenter();
+    PROCESS_LIST.lock().processes[current_process].context.rdx = vaddr;
 }
 
-pub extern "x86-interrupt" fn get_mouse_pos(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].context.rax = MOUSE_POS.lock().0;
-    PROCESS_LIST.lock().processes[current_process].context.rcx = MOUSE_POS.lock().1;
-    PROCESS_LIST.lock().processes[current_process].context.rdx = MOUSE_POS.lock().2 as u64;
-    PROCESS_LIST.lock().processes[current_process].context.r8 = MOUSE_POS.lock().3 as u64;
-    // END OF INTERRUPT CODE
-
-    PROCESS_LIST.lock().processes[current_process].reenter();
+pub fn get_mouse(current_process: usize, ctx: Context) {
+    PROCESS_LIST.lock().processes[current_process].context.rcx = MOUSE_POS.lock().0;
+    PROCESS_LIST.lock().processes[current_process].context.rdx = MOUSE_POS.lock().1;
+    PROCESS_LIST.lock().processes[current_process].context.r8 = MOUSE_POS.lock().2 as u64;
+    PROCESS_LIST.lock().processes[current_process].context.r9 = MOUSE_POS.lock().3 as u64;
 }
 
-pub extern "x86-interrupt" fn get_key(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].context.rax =
+pub fn get_key(current_process: usize, ctx: Context) {
+    PROCESS_LIST.lock().processes[current_process].context.rcx =
         STDIN.lock().keyboard_int.is_some() as u64;
 
     let int = STDIN.lock().keyboard_int;
@@ -277,58 +200,40 @@ pub extern "x86-interrupt" fn get_key(stack_frame: InterruptStackFrame) {
         }
     }
 
-    PROCESS_LIST.lock().processes[current_process].context.rcx = c as u64;
-    PROCESS_LIST.lock().processes[current_process].context.rdx = sc as u64;
+    PROCESS_LIST.lock().processes[current_process].context.rdx = c as u64;
+    PROCESS_LIST.lock().processes[current_process].context.r8 = sc as u64;
     STDIN.lock().keyboard_int = None;
-    // END OF INTERRUPT CODE
-
-    PROCESS_LIST.lock().processes[current_process].reenter();
 }
 
-pub extern "x86-interrupt" fn exec(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
-
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    let ptr = ctx.rax as *const u8;
-    let len = ctx.rcx as usize;
+pub fn exec(current_process: usize, ctx: Context) {
+    let ptr = ctx.rcx as *const u8;
+    let len = ctx.rdx as usize;
     let string = unsafe { core::str::from_raw_parts(ptr, len) };
     let fat = FAT32.lock();
     let file = fat.as_ref().unwrap().read_file(string);
     match file {
         Ok(f) => {
-            PROCESS_LIST.lock().processes[current_process].context.rdx = 1;
+            PROCESS_LIST.lock().processes[current_process].context.r8 = 1;
             let proc = crate::elf::ElfExecutable::new(f);
             let proc = Process::new(proc.load_all(), proc.get_entry());
             PROCESS_LIST.lock().processes.push(proc);
         }
         Err(e) => {
-            PROCESS_LIST.lock().processes[current_process].context.rdx = 0;
+            PROCESS_LIST.lock().processes[current_process].context.r8 = 0;
         }
     }
     unsafe {
         FAT32.force_unlock();
     }
-    // END OF INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].reenter();
 }
 
-pub extern "x86-interrupt" fn get_shared_page(stack_frame: InterruptStackFrame) {
-    let mut ctx = Context::capture_regs();
-    ctx.rsp = stack_frame.stack_ptr;
-    ctx.rip = stack_frame.instruction_ptr;
-    ctx.rflags = stack_frame.r_flags;
+// For some reason, if this function is automatically inlined, the kernel will throw a GP fault,
+// even if neither syscall_handler nor this specific routine have been called...
+#[inline(never)]
+pub fn get_shared_page(current_process: usize, ctx: Context) {
+    PROCESS_LIST.lock().processes[current_process].context.rcx = *SHARED_PAGE.lock();
+}
 
-    let mut current_process = PROCESS_LIST.lock().current_process;
-    PROCESS_LIST.lock().processes[current_process].context = ctx;
-
-    // INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].context.rax = *SHARED_PAGE.lock();
-    // END OF INTERRUPT CODE
-    PROCESS_LIST.lock().processes[current_process].reenter();
+pub fn get_milliseconds_since_startup(current_process: usize, ctx: Context) {
+    PROCESS_LIST.lock().processes[current_process].context.rcx = *MILLISECONDS_SINCE_STARTUP.lock();
 }

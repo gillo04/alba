@@ -267,12 +267,13 @@ impl ScreenBuffer<'_> {
     pub fn put(&self) {
         unsafe {
             asm!(
-                "int 0x41",
-                in("rax") self.base.as_ptr(),
-                in("rcx") self.x,
-                in("rdx") self.y,
-                in("r8") self.w,
-                in("r9") self.h,
+                "int 0x80",
+                in("rax") 0x11,
+                in("rcx") self.base.as_ptr(),
+                in("rdx") self.x,
+                in("r8") self.y,
+                in("r9") self.w,
+                in("r10") self.h,
             );
         }
     }
@@ -317,9 +318,10 @@ pub fn get_screen() -> Screen {
     };
     unsafe {
         asm!(
-            "int 0x42",
-            out("rax") screen.width,
-            out("rcx") screen.height,
+            "int 0x80",
+            in("rax") 0x12,
+            out("rcx") screen.width,
+            out("rdx") screen.height,
         );
     }
     screen

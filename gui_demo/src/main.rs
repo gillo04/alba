@@ -37,7 +37,7 @@ extern "C" fn main() {
     let font = Font::new(File::load("USER/FONT    PSF").unwrap()).unwrap();
 
     // Build GUI tree
-    let image = GuiRect {
+    let mut image = GuiRect {
         width: Dimension::Percentage(1.0),
         height: Dimension::Relative,
         margin_y: 5,
@@ -85,7 +85,7 @@ extern "C" fn main() {
         }
         gui_root.width = Dimension::Absolute(width as u64);
 
-        let mouse = get_mouse_position();
+        let mouse = get_mouse();
         let io = IoState {
             mouse_pos: (mouse.0 - window.x, mouse.1 - window.y),
             left_button: mouse.2,

@@ -46,7 +46,7 @@ extern "C" fn main() {
     let mut current_drag: usize = 0;
     let mut is_left_pressed: bool = false;
     loop {
-        let mouse_pos = get_mouse_position();
+        let mouse_pos = get_mouse();
 
         // Check for acknowledgements and advance free pointer
         if smh.ack == 1 {
@@ -139,7 +139,7 @@ extern "C" fn main() {
                     };
 
                     if r.point_intersection(mx as i64, my as i64) {
-                        exec(file.0);
+                        let _ = exec(file.0);
                     }
                 }
             }

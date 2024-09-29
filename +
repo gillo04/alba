@@ -44,7 +44,7 @@ extern "C" fn main() {
     img.draw(&mut sbuffer, 0, 0, 100, 100);
     sbuffer.put();
 
-    let ms = get_milliseconds_since_startup();
-    println!("Ms: {}", ms);
+    /*let ms = get_milliseconds_since_startup();
+    println!("Ms: {}", ms);*/
     loop {}
 }

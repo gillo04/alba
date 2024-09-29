@@ -92,7 +92,7 @@ impl Process {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Context {
     pub rax: u64,
     pub rbx: u64,
@@ -169,7 +169,7 @@ impl Context {
             );
         }
 
-        unsafe { *ctx }
+        unsafe { (*ctx).clone() }
     }
 
     #[inline]
