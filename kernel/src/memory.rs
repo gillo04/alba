@@ -120,7 +120,12 @@ pub struct PhysicalMemoryMap {
     descriptor_size: usize,
     descriptor_version: u32,
 
-    alloc_count: u64,
+    head: u64, // Head of the frame linked list
+    available_pages: u64,
+}
+
+struct PhysicalMemoryLinkedList {
+    next: *const PhysicalMemoryLinkedList,
 }
 
 impl PhysicalMemoryMap {
@@ -131,12 +136,14 @@ impl PhysicalMemoryMap {
             key: 0,
             descriptor_size: 0,
             descriptor_version: 0,
-            alloc_count: 0,
+
+            head: 0,
+            available_pages: 0,
         }
     }
 
-    // Calls get_memory_map
     fn init(&mut self, system_table: *const SystemTable) -> Result<(), Status> {
+        // Get memory map
         let status = unsafe {
             ((*(*system_table).boot_services).get_memory_map)(
                 &mut self.mm_size as *mut usize,
@@ -153,8 +160,8 @@ impl PhysicalMemoryMap {
         }
     }
 
-    // Calls set_virtual_address_map
     fn uefi_identity_map(&mut self, system_table: *const SystemTable) -> Result<(), Status> {
+        // Call set_virtual_address_map
         let descriptor_count = self.mm_size / self.descriptor_size;
         for i in 0..descriptor_count {
             let descriptor = unsafe {
@@ -175,35 +182,61 @@ impl PhysicalMemoryMap {
             )
         };
 
-        match status {
-            Status::SUCCESS => Ok(()),
-            _ => Err(status),
+        if status != Status::SUCCESS {
+            return Err(status);
         }
-    }
 
-    pub fn alloc_frame(&mut self) -> u64 {
-        let descriptor_count = self.mm_size / self.descriptor_size;
-        let mut page_count = 0;
+        // Build linked list
+        let mut next = 0 as *const PhysicalMemoryLinkedList;
         for i in 0..descriptor_count {
             let descriptor = unsafe {
-                &*((&self.map as *const MemoryDescriptor as u64
+                &mut *((&self.map as *const MemoryDescriptor as u64
                     + i as u64 * self.descriptor_size as u64)
-                    as *const MemoryDescriptor)
+                    as *mut MemoryDescriptor)
             };
 
             if descriptor.t == MemoryType::ConventionalMemory {
-                if page_count + descriptor.number_of_pages > self.alloc_count {
-                    let allocated_frame =
-                        descriptor.physical_start + (self.alloc_count - page_count) * 0x1000;
-                    self.alloc_count += 1;
-                    return allocated_frame;
-                } else {
-                    page_count += descriptor.number_of_pages;
+                for j in 0..descriptor.number_of_pages {
+                    unsafe {
+                        *((descriptor.physical_start + 0x1000 * j)
+                            as *mut PhysicalMemoryLinkedList) = PhysicalMemoryLinkedList { next };
+                    }
+                    next = (descriptor.physical_start + 0x1000 * j) as *mut PhysicalMemoryLinkedList
                 }
+                self.available_pages += descriptor.number_of_pages;
             }
         }
 
-        panic!("No more usable memory");
+        self.head = next as u64;
+        return Ok(());
+    }
+
+    pub fn alloc_frame(&mut self) -> u64 {
+        let out = self.head as u64;
+        if out == 0 {
+            panic!("No more usable memory");
+        }
+        self.head = unsafe { (*(self.head as *const PhysicalMemoryLinkedList)).next } as u64;
+        self.available_pages -= 1;
+        out
+    }
+
+    pub fn dealloc_frame(&mut self, vaddr: u64) {
+        unsafe {
+            *(vaddr as *mut PhysicalMemoryLinkedList) = PhysicalMemoryLinkedList {
+                next: self.head as *const PhysicalMemoryLinkedList,
+            };
+        }
+
+        let pte = unsafe {
+            MEMORY_MANAGER
+                .lock()
+                .get_plm4()
+                .get_page_table_entry(vaddr, 3)
+        }
+        .expect("Cannot deallocate unmapped frame");
+        self.head = pte.get_physical_address();
+        self.available_pages += 1;
     }
 }
 

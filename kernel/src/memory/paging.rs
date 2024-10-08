@@ -83,7 +83,7 @@ impl PageTable {
         };
     }
 
-    fn get_page_table_entry(&mut self, vaddr: u64, depth: u32) -> Option<&mut PageTableEntry> {
+    pub fn get_page_table_entry(&mut self, vaddr: u64, depth: u32) -> Option<&mut PageTableEntry> {
         let index = ((vaddr >> 12) >> (9 * depth)) & 0x1ff;
 
         if depth == 0 {
