@@ -23,7 +23,7 @@ pub fn exit_syscall(current_process: usize) {
 }
 
 pub extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) {
-    let (current_process, ctx) = enter_syscall(stack_frame);
+    let (mut current_process, ctx) = enter_syscall(stack_frame);
 
     match ctx.rax {
         0x10 => print(ctx),
@@ -39,9 +39,13 @@ pub extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) 
         0x41 => get_shared_page(current_process, ctx),
 
         0x50 => get_milliseconds_since_startup(current_process, ctx),
+
         0x60 => exec(current_process, ctx),
+        0x61 => exit(current_process, ctx),
+        0x62 => kill(current_process, ctx),
         _ => panic!("Call to unknown syscall"),
     }
 
+    current_process = PROCESS_LIST.lock().current_process;
     exit_syscall(current_process);
 }

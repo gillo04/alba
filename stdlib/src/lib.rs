@@ -127,8 +127,10 @@ pub fn get_mouse() -> (u64, u64, bool, bool) {
     out
 }
 
-pub fn exec(path: &str) -> Result<(), ()> {
+// Returns the pid of the spawned process
+pub fn exec(path: &str) -> Result<u32, ()> {
     let mut res: u64 = 0;
+    let mut pid: u64 = 0;
     unsafe {
         asm!(
             "int 0x80",
@@ -136,12 +138,14 @@ pub fn exec(path: &str) -> Result<(), ()> {
             in("rcx") path.as_ptr(),
             in("rdx") path.len(),
             out("r8") res,
+            out("r9") pid,
         );
     }
+
     if res == 0 {
         Err(())
     } else {
-        Ok(())
+        Ok(pid as u32)
     }
 }
 
@@ -155,4 +159,23 @@ pub fn get_shared_page() -> u64 {
         );
     }
     ptr
+}
+
+pub fn exit() {
+    unsafe {
+        asm!(
+            "int 0x80",
+            in("rax") 0x61,
+        );
+    }
+}
+
+pub fn kill(pid: u32) {
+    unsafe {
+        asm!(
+            "int 0x80",
+            in("rax") 0x62,
+            in("rcx") pid as u64,
+        );
+    }
 }

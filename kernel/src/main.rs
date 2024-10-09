@@ -108,8 +108,9 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .read_file("USER/DESKTOP")
         .unwrap();
     let desktop = ElfExecutable::new(desktop);
-    let desktop = Process::new(desktop.load_all(), desktop.get_entry());
-    PROCESS_LIST.lock().processes.push(desktop);
+    PROCESS_LIST
+        .lock()
+        .push_process(desktop.load_all(), desktop.get_entry());
 
     println!("Elf files loaded");
 

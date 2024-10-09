@@ -16,6 +16,7 @@ const TAB_HEIGHT: u64 = 40;
 
 struct Tab {
     color: u32,
+    pid: u32,
 }
 
 #[export_name = "_start"]
@@ -45,6 +46,8 @@ extern "C" fn main() {
     let mut drag_anchor: Option<(u64, u64)> = None;
     let mut current_drag: usize = 0;
     let mut is_left_pressed: bool = false;
+
+    let mut prev_pid = 0;
     loop {
         let mouse_pos = get_mouse();
 
@@ -54,7 +57,10 @@ extern "C" fn main() {
             smh.advance_free_space();
 
             // Create tab
-            tabs.push(Tab { color: 0xcccccc });
+            tabs.push(Tab {
+                color: 0xcccccc,
+                pid: prev_pid,
+            });
         }
 
         // Draw
@@ -120,11 +126,13 @@ extern "C" fn main() {
                     }
                 }
             } else if drag_anchor.is_some() {
-                let fw = smh.iter_mut().nth(current_drag);
-                if let Some(window) = fw {
+                let fw = smh.iter_mut().enumerate().nth(current_drag);
+                if let Some((i, window)) = fw {
+                    kill(tabs[i].pid);
+                    /*
                     let drag_anchor = drag_anchor.unwrap();
                     window.x = mouse_pos.0 - drag_anchor.0;
-                    window.y = mouse_pos.1 - drag_anchor.1 + TAB_HEIGHT;
+                    window.y = mouse_pos.1 - drag_anchor.1 + TAB_HEIGHT;*/
                 }
             }
 
@@ -139,7 +147,7 @@ extern "C" fn main() {
                     };
 
                     if r.point_intersection(mx as i64, my as i64) {
-                        let _ = exec(file.0);
+                        prev_pid = exec(file.0).unwrap();
                     }
                 }
             }

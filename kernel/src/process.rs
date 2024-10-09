@@ -18,6 +18,8 @@ pub struct ProcessList {
     pub processes: Vec<Process>,
     pub current_process: usize,
     pub jump_to_multitasking: bool,
+
+    pid_counter: u32,
 }
 
 impl ProcessList {
@@ -26,6 +28,28 @@ impl ProcessList {
             processes: Vec::new(),
             current_process: 0,
             jump_to_multitasking: false,
+            pid_counter: 0,
+        }
+    }
+
+    pub fn push_process(&mut self, mappings: Vec<VirtualMapping>, entry_point: u64) -> u32 {
+        self.processes
+            .push(Process::new(mappings, entry_point, self.pid_counter));
+        self.pid_counter += 1;
+        self.pid_counter - 1
+    }
+
+    pub fn kill(&mut self, pid: u32) {
+        for (i, proc) in self.processes.iter().enumerate() {
+            if proc.pid == pid {
+                self.processes.remove(i);
+                if self.processes.len() == 0 {
+                    self.current_process = 0;
+                } else {
+                    self.current_process = self.current_process % self.processes.len();
+                }
+                break;
+            }
         }
     }
 }
@@ -33,13 +57,15 @@ impl ProcessList {
 pub struct Process {
     pub mappings: Vec<VirtualMapping>,
     pub context: Context,
+    pub pid: u32,
 }
 
 impl Process {
-    pub fn new(mappings: Vec<VirtualMapping>, entry_point: u64) -> Process {
+    pub fn new(mappings: Vec<VirtualMapping>, entry_point: u64, pid: u32) -> Process {
         let mut tmp = Process {
             mappings,
             context: Context::new(USER_STACK_BASE + USER_STACK_PAGE_COUNT * 0x1000),
+            pid,
         };
 
         // Allocate stack

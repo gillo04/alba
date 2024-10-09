@@ -22,6 +22,10 @@ pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     ctx.rip = stack_frame.instruction_ptr;
     ctx.rflags = stack_frame.r_flags;
 
+    if PROCESS_LIST.lock().processes.len() == 0 {
+        panic!("Empty process list");
+    }
+
     let mut current_process = PROCESS_LIST.lock().current_process;
     if PROCESS_LIST.lock().jump_to_multitasking {
         PROCESS_LIST.lock().jump_to_multitasking = false;
@@ -215,8 +219,10 @@ pub fn exec(current_process: usize, ctx: Context) {
         Ok(f) => {
             PROCESS_LIST.lock().processes[current_process].context.r8 = 1;
             let proc = crate::elf::ElfExecutable::new(f);
-            let proc = Process::new(proc.load_all(), proc.get_entry());
-            PROCESS_LIST.lock().processes.push(proc);
+            let pid = PROCESS_LIST
+                .lock()
+                .push_process(proc.load_all(), proc.get_entry());
+            PROCESS_LIST.lock().processes[current_process].context.r9 = pid as u64;
         }
         Err(e) => {
             PROCESS_LIST.lock().processes[current_process].context.r8 = 0;
@@ -236,4 +242,14 @@ pub fn get_shared_page(current_process: usize, ctx: Context) {
 
 pub fn get_milliseconds_since_startup(current_process: usize, ctx: Context) {
     PROCESS_LIST.lock().processes[current_process].context.rcx = *MILLISECONDS_SINCE_STARTUP.lock();
+}
+
+pub fn exit(current_process: usize, ctx: Context) {
+    let mut pid = PROCESS_LIST.lock().processes[current_process].pid;
+    PROCESS_LIST.lock().kill(pid);
+}
+
+pub fn kill(current_process: usize, ctx: Context) {
+    let mut pid = ctx.rcx as u32;
+    PROCESS_LIST.lock().kill(pid);
 }
