@@ -14,6 +14,7 @@ mod fat32;
 mod fs;
 mod gdt;
 mod idt;
+mod ipc;
 mod memory;
 mod mouse;
 mod pic8259;
@@ -105,7 +106,7 @@ extern "efiapi" fn efi_main(image_handle: *const c_void, system_table: *const Sy
         .lock()
         .as_ref()
         .unwrap()
-        .read_file("USER/DESKTOP")
+        .read_file("USER/USER1")
         .unwrap();
     let desktop = ElfExecutable::new(desktop);
     PROCESS_LIST

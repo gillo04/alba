@@ -1,9 +1,8 @@
-use core::fmt::Write;
-
 use super::super::print;
 use super::syscalls::*;
 use super::*;
 use crate::fat32::*;
+use crate::ipc;
 use crate::memory::*;
 use crate::mouse::*;
 use crate::pic8259::*;
@@ -14,7 +13,10 @@ use crate::stdin::*;
 use crate::stdout::*;
 use crate::utils::*;
 use crate::Fs;
+use alloc::string::*;
 use core::arch::*;
+use core::fmt::Write;
+use core::str::FromStr;
 
 pub extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) {
     let mut ctx = Context::capture_regs();
@@ -252,4 +254,73 @@ pub fn exit(current_process: usize, ctx: Context) {
 pub fn kill(current_process: usize, ctx: Context) {
     let mut pid = ctx.rcx as u32;
     PROCESS_LIST.lock().kill(pid);
+}
+
+pub fn create_mail_box(current_process: usize, ctx: Context) {
+    let mut pid = PROCESS_LIST.lock().processes[current_process].pid;
+    let name = unsafe {
+        let ptr = ctx.rcx;
+        let len = ctx.rdx;
+        core::str::from_raw_parts(ptr as *const u8, len as usize)
+    };
+    let name = String::from(name);
+
+    ipc::create_mail_box(pid, name);
+}
+
+pub fn delete_mail_box(current_process: usize, ctx: Context) {
+    let mut pid = PROCESS_LIST.lock().processes[current_process].pid;
+    let name = unsafe {
+        let ptr = ctx.rcx;
+        let len = ctx.rdx;
+        core::str::from_raw_parts(ptr as *const u8, len as usize)
+    };
+    let name = String::from(name);
+
+    ipc::delete_mail_box(pid, name);
+}
+
+pub fn send_message(current_process: usize, ctx: Context) {
+    let mut pid = PROCESS_LIST.lock().processes[current_process].pid;
+    let name = unsafe {
+        let ptr = ctx.rcx;
+        let len = ctx.rdx;
+        core::str::from_raw_parts(ptr as *const u8, len as usize)
+    };
+    let name = String::from(name);
+
+    let data = unsafe {
+        let ptr = ctx.r8;
+        let len = ctx.r9;
+        core::slice::from_raw_parts(ptr as *const u8, len as usize)
+    };
+
+    ipc::send(pid, &name, data);
+}
+
+// TODO figure out buffer size checking
+pub fn try_receive_message(current_process: usize, ctx: Context) {
+    let mut pid = PROCESS_LIST.lock().processes[current_process].pid;
+    let name = unsafe {
+        let ptr = ctx.rcx;
+        let len = ctx.rdx;
+        core::str::from_raw_parts(ptr as *const u8, len as usize)
+    };
+    let name = String::from(name);
+
+    if let Ok(msg) = ipc::try_receive(&name) {
+        if let Some(msg) = msg {
+            PROCESS_LIST.lock().processes[current_process].context.r10 = 0;
+            let dest = unsafe {
+                let ptr = ctx.r8;
+                let len = msg.data.len();
+                core::slice::from_raw_parts_mut(ptr as *mut u8, len as usize)
+            };
+            dest.copy_from_slice(&msg.data);
+        } else {
+            PROCESS_LIST.lock().processes[current_process].context.r10 = 1;
+        }
+    } else {
+        PROCESS_LIST.lock().processes[current_process].context.r10 = 1;
+    }
 }

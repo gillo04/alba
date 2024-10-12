@@ -12,8 +12,9 @@ Alba OS is a 64 bit x86_64 multitasking operating system written in Rust.
 - [x] FAT32 file system
 - [x] Time based preemptive multitasking
 - [x] File system and graphic and  system calls
-- [ ] Process creation and management system calls
+- [x] Process creation and management system calls
 - [ ] Sleep system call
+- [ ] Message passing
 - [x] Mouse driver
 - [ ] Full GUI library
 - [ ] Desktop environment

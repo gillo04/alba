@@ -51,6 +51,10 @@ impl ProcessList {
                 break;
             }
         }
+
+        if self.processes.len() == 0 {
+            panic!("Empty process list");
+        }
     }
 }
 

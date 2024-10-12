@@ -7,6 +7,7 @@ pub mod desktop;
 pub mod fs;
 pub mod graphics;
 pub mod heap;
+pub mod ipc;
 
 pub extern crate alloc;
 

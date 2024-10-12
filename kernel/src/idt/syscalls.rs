@@ -18,7 +18,8 @@ pub fn enter_syscall(stack_frame: InterruptStackFrame) -> (usize, Context) {
 }
 
 #[inline(always)]
-pub fn exit_syscall(current_process: usize) {
+pub fn exit_syscall() {
+    let current_process = PROCESS_LIST.lock().current_process;
     PROCESS_LIST.lock().processes[current_process].reenter();
 }
 
@@ -36,7 +37,11 @@ pub extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) 
         0x30 => load_file(current_process, ctx),
 
         0x40 => alloc_pages(current_process, ctx),
-        0x41 => get_shared_page(current_process, ctx),
+        0x41 => get_shared_page(current_process, ctx), // TODO remove
+        0x42 => create_mail_box(current_process, ctx),
+        0x43 => delete_mail_box(current_process, ctx),
+        0x44 => send_message(current_process, ctx),
+        0x45 => try_receive_message(current_process, ctx),
 
         0x50 => get_milliseconds_since_startup(current_process, ctx),
 
@@ -46,6 +51,5 @@ pub extern "x86-interrupt" fn syscall_handler(stack_frame: InterruptStackFrame) 
         _ => panic!("Call to unknown syscall"),
     }
 
-    current_process = PROCESS_LIST.lock().current_process;
-    exit_syscall(current_process);
+    exit_syscall();
 }

@@ -128,11 +128,9 @@ extern "C" fn main() {
             } else if drag_anchor.is_some() {
                 let fw = smh.iter_mut().enumerate().nth(current_drag);
                 if let Some((i, window)) = fw {
-                    kill(tabs[i].pid);
-                    /*
                     let drag_anchor = drag_anchor.unwrap();
                     window.x = mouse_pos.0 - drag_anchor.0;
-                    window.y = mouse_pos.1 - drag_anchor.1 + TAB_HEIGHT;*/
+                    window.y = mouse_pos.1 - drag_anchor.1 + TAB_HEIGHT;
                 }
             }
 
